@@ -26,7 +26,15 @@ jobs:
 
     - name: Pack the project as a NuGet package for .NET 9.0
       run: dotnet pack src/Mappy/Mappy.csproj -c Release -o artifacts
-
+      
+    - name: Publish Artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: build-artifacts
+        path: src/Mappy/bin/Release/net9.0
+        if-no-files-found: warn
+        include-hidden-files: false
+        
     #- name: Publish to GitHub Packages
     #  env:
     #    NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
