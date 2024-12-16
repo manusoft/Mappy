@@ -37,7 +37,6 @@ jobs:
         
     - name: Publish to GitHub Packages
       env:
-        NUGET: ${{ secrets.NUGET }}
         NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
       run: |
-        dotnet nuget push artifacts/*.nupkg --source $NUGET
+        dotnet nuget push artifacts/*.nupkg --source $NUGET --api-key $NUGET_API_KEY
