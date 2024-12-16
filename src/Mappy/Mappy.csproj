@@ -5,13 +5,16 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
 	<AssemblyName>Mappy</AssemblyName>
-	<Description>A fast, fun and stimulating object to object mapper.  Kind of like AutoMapper, just simpler and way, way faster.</Description>
-	<Copyright>Copyright (c) 2024 Manojbabu</Copyright>
+	<Description>Mappy is a lightweight object mapping utility for C# applications.</Description>
+	<Copyright>Copyright (c) 2024 ManuHub</Copyright>
 	<Authors>Manojbabu</Authors>
-    <PackageId>Mappy</PackageId>
+    <PackageId>Mappy.dotNet</PackageId>
     <PackageTags>Mappy;Mapper;AutoMapper;Fast;Mapping</PackageTags>
 	<PackageProjectUrl>https://github.com/manusoft/Mappy</PackageProjectUrl>
-	<RootNamespace>Mappy</RootNamespace>
+	<RepositoryUrl>https://github.com/MapsterMapper/Mapster</RepositoryUrl>
+	<PackageLicenseUrl></PackageLicenseUrl>
+	<IsPackable>true</IsPackable>
+	<RootNamespace>Mappy</RootNamespace>	  
 	<Version>1.0.0</Version>
   </PropertyGroup>
 
