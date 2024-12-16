@@ -35,8 +35,8 @@ jobs:
         if-no-files-found: warn
         include-hidden-files: false
         
-    #- name: Publish to GitHub Packages
-    #  env:
-    #    NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
-    #  run: |
-    #    dotnet nuget push artifacts/*.nupkg --source ${{ secrets.NUGET_SOURCE }}
+    - name: Publish to GitHub Packages
+      env:
+        NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+      run: |
+        dotnet nuget push artifacts/*.nupkg --source ${{ secrets.NUGET_SOURCE }}
