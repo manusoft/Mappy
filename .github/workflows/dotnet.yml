@@ -36,7 +36,7 @@ jobs:
         include-hidden-files: false
         
     - name: Publish to GitHub Packages
-       env:
+      env:
         NUGET: ${{ secrets.NUGET }}
         NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
       run: |
