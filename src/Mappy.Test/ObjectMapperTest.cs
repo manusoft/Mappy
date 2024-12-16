@@ -36,7 +36,7 @@ public class ObjectMapperTest
             Assert.Equal(sourceList[i].Id, destinationList[i].Id);
             Assert.Equal(sourceList[i].Name, destinationList[i].Name);
         }
-    }
+    }    
 }
 
 public class Source

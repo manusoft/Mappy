@@ -78,8 +78,8 @@ public static class ObjectMapper
     {
         var sourceType = source.GetType();
         var destinationType = destination.GetType();
-        var sourceProperties = sourceType.GetProperties(BindingFlags.Public | BindingFlags.Instance);
-        var destinationProperties = destinationType.GetProperties(BindingFlags.Public | BindingFlags.Instance);
+        var sourceProperties = sourceType.GetProperties(BindingFlags.Public | BindingFlags.Instance | BindingFlags.NonPublic);
+        var destinationProperties = destinationType.GetProperties(BindingFlags.Public | BindingFlags.Instance | BindingFlags.NonPublic);
 
         foreach (var sourceProp in sourceProperties)
         {
@@ -96,24 +96,22 @@ public static class ObjectMapper
 
             if (IsSimpleType(destProp.PropertyType))
             {
-                // Map simple properties directly
                 destProp.SetValue(destination, sourceValue);
             }
             else if (typeof(IEnumerable).IsAssignableFrom(destProp.PropertyType) && destProp.PropertyType != typeof(string))
             {
-                // Handle collections
                 var collection = MapCollection(sourceValue as IEnumerable, destProp.PropertyType);
                 destProp.SetValue(destination, collection);
             }
             else
             {
-                // Handle nested objects
                 var nestedObject = Activator.CreateInstance(destProp.PropertyType);
                 MapProperties(sourceValue, nestedObject);
                 destProp.SetValue(destination, nestedObject);
             }
         }
     }
+
 
     /// <summary>
     /// Maps a source collection to a destination collection.
