@@ -1,4 +1,4 @@
-# Mappy - Object-to-Object Mapping
+# 🍁Mappy - Object Mapping
 
 ## Introduction
 **Mappy** is a lightweight object mapping utility for C# applications. It allows you to easily map objects between models and DTOs, handle nested objects, and map collections. This utility supports both synchronous and asynchronous mapping operations, with options for custom transformations.
@@ -12,6 +12,7 @@
 4. **Custom Mapping**: Supports custom transformations using lambda expressions.
 5. **Asynchronous Mapping**: Enables async operations for custom transformations.
 6. **Null Safety**: Handles null values gracefully.
+7. Support mapping **private** properties.
 
 ---
 
@@ -237,8 +238,7 @@ namespace SimpleMapper
 
 ## Notes
 1. **Performance**: This mapper is not optimized for very large datasets or scenarios with high-frequency mapping needs. Use with caution for such cases.
-2. **Limitations**:
-   - Does not support mapping private properties.
+2. **Limitations**:   
    - Cannot handle circular references.
 
 ## License
