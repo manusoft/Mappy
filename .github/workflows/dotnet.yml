@@ -27,8 +27,8 @@ jobs:
     - name: Pack the project as a NuGet package for .NET 9.0
       run: dotnet pack src/Mappy/Mappy.csproj -c Release -o artifacts
 
-    - name: Publish to GitHub Packages
-      env:
-        NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
-      run: |
-        dotnet nuget push artifacts/*.nupkg --source ${{ secrets.NUGET_SOURCE }}
+    #- name: Publish to GitHub Packages
+    #  env:
+    #    NUGET_API_KEY: ${{ secrets.NUGET_API_KEY }}
+    #  run: |
+    #    dotnet nuget push artifacts/*.nupkg --source ${{ secrets.NUGET_SOURCE }}
