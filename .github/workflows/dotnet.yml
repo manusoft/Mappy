@@ -13,22 +13,47 @@ jobs:
     - name: Checkout repository
       uses: actions/checkout@v4
 
-    - name: Set up .NET SDK
+    - name: Set up .NET SDK (for .NET 6.0)
       uses: actions/setup-dotnet@v4
       with:
-        dotnet-version: 8.0.x
-    
-    - name: Restore dependencies
-      run: dotnet restore
-    
-    - name: Build Project
-      run: |
-        dotnet restore src/Mappy/Mappy.csproj
-        dotnet build src/Mappy/Mappy.csproj
+        dotnet-version: '6.0.x'  # Setup .NET 6.0
 
-    - name: Pack the project as a NuGet package
-      run: |
-        dotnet pack src/Mappy/Mappy.csproj -c Release -o artifacts
+    - name: Restore dependencies for .NET 6.0
+      run: dotnet restore src/Mappy/Mappy.csproj
+
+    - name: Build Project for .NET 6.0
+      run: dotnet build src/Mappy/Mappy.csproj
+
+    - name: Pack the project as a NuGet package for .NET 6.0
+      run: dotnet pack src/Mappy/Mappy.csproj -c Release -o artifacts
+
+    - name: Set up .NET SDK (for .NET 8.0)
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'  # Setup .NET 8.0
+
+    - name: Restore dependencies for .NET 8.0
+      run: dotnet restore src/Mappy/Mappy.csproj
+
+    - name: Build Project for .NET 8.0
+      run: dotnet build src/Mappy/Mappy.csproj
+
+    - name: Pack the project as a NuGet package for .NET 8.0
+      run: dotnet pack src/Mappy/Mappy.csproj -c Release -o artifacts
+
+    - name: Set up .NET SDK (for .NET 9.0)
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '9.0.x'  # Setup .NET 9.0
+
+    - name: Restore dependencies for .NET 9.0
+      run: dotnet restore src/Mappy/Mappy.csproj
+
+    - name: Build Project for .NET 9.0
+      run: dotnet build src/Mappy/Mappy.csproj
+
+    - name: Pack the project as a NuGet package for .NET 9.0
+      run: dotnet pack src/Mappy/Mappy.csproj -c Release -o artifacts
 
     - name: Publish to GitHub Packages
       env:
