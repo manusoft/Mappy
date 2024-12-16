@@ -1,0 +1,34 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.12.35527.113
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Mappy", "src\Mappy\Mappy.csproj", "{B684905A-14C7-4B42-8B35-6DB2F76FAF47}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Sample.ConsoleApp", "src\Sample.ConsoleApp\Sample.ConsoleApp.csproj", "{647A263A-BF19-4D13-B099-4FA0D8117EA4}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Mappy.Test", "src\Mappy.Test\Mappy.Test.csproj", "{AED6EE39-6101-4BEC-888E-1C0783BF6011}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{B684905A-14C7-4B42-8B35-6DB2F76FAF47}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B684905A-14C7-4B42-8B35-6DB2F76FAF47}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B684905A-14C7-4B42-8B35-6DB2F76FAF47}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B684905A-14C7-4B42-8B35-6DB2F76FAF47}.Release|Any CPU.Build.0 = Release|Any CPU
+		{647A263A-BF19-4D13-B099-4FA0D8117EA4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{647A263A-BF19-4D13-B099-4FA0D8117EA4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{647A263A-BF19-4D13-B099-4FA0D8117EA4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{647A263A-BF19-4D13-B099-4FA0D8117EA4}.Release|Any CPU.Build.0 = Release|Any CPU
+		{AED6EE39-6101-4BEC-888E-1C0783BF6011}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{AED6EE39-6101-4BEC-888E-1C0783BF6011}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{AED6EE39-6101-4BEC-888E-1C0783BF6011}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{AED6EE39-6101-4BEC-888E-1C0783BF6011}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
