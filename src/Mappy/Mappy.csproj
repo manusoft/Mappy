@@ -11,11 +11,11 @@
     <PackageId>Mappy.dotNet</PackageId>
     <PackageTags>Mappy;Mapper;AutoMapper;Fast;Mapping</PackageTags>
 	<PackageProjectUrl>https://github.com/manusoft/Mappy</PackageProjectUrl>
-	<RepositoryUrl>https://github.com/MapsterMapper/Mapster</RepositoryUrl>
+	<RepositoryUrl>https://github.com/manusoft/manusoft</RepositoryUrl>
 	<PackageLicenseUrl></PackageLicenseUrl>
 	<IsPackable>true</IsPackable>
 	<RootNamespace>Mappy</RootNamespace>	  
-	<Version>1.0.0</Version>
+	<Version>2.0.0</Version>
   </PropertyGroup>
 
 </Project>
