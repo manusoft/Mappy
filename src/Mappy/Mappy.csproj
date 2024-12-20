@@ -11,7 +11,7 @@
     <PackageId>Mappy.dotNet</PackageId>
     <PackageTags>Mappy;Mapper;AutoMapper;Fast;Mapping</PackageTags>
 	<PackageProjectUrl>https://github.com/manusoft/Mappy</PackageProjectUrl>
-	<RepositoryUrl>https://github.com/manusoft/manusoft</RepositoryUrl>
+	<RepositoryUrl>https://github.com/manusoft/Mappy</RepositoryUrl>
 	<PackageLicenseUrl></PackageLicenseUrl>
 	<IsPackable>true</IsPackable>
 	<RootNamespace>Mappy</RootNamespace>	  
