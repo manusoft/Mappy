@@ -8,7 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Mappy.dotNet" Version="2.0.0" />
+    <ProjectReference Include="..\Mappy\Mappy.csproj" />
   </ItemGroup>
 
 </Project>

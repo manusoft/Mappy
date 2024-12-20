@@ -89,12 +89,6 @@ public static class ObjectMapper
 
             if (destProp == null) continue;
 
-            // Check type compatibility
-            if (sourceProp.PropertyType != destProp.PropertyType)
-            {
-                throw new InvalidOperationException($"Property type mismatch: {sourceProp.Name} cannot be mapped to {destProp.Name}");
-            }
-
             var sourceValue = sourceProp.GetValue(source);
             if (sourceValue == null)
             {
@@ -104,6 +98,10 @@ public static class ObjectMapper
 
             if (IsSimpleType(destProp.PropertyType))
             {
+                if (!sourceProp.PropertyType.IsAssignableFrom(destProp.PropertyType))
+                {
+                    throw new InvalidOperationException($"Type mismatch: cannot map from {sourceProp.PropertyType} to {destProp.PropertyType}");
+                }
                 destProp.SetValue(destination, sourceValue);
             }
             else if (typeof(IEnumerable).IsAssignableFrom(destProp.PropertyType) && destProp.PropertyType != typeof(string))
@@ -119,6 +117,8 @@ public static class ObjectMapper
             }
         }
     }
+
+
 
     /// <summary>
     /// Maps a source collection to a destination collection.
