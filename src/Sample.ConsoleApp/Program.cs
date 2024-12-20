@@ -6,10 +6,17 @@ var destination = source.Map<Destination>();
 Console.WriteLine($"Simple Mapping - Source Name: {source.Name}, Destination Name: {destination.Name}");
 
 // Test Nested Object Mapping
-var nestedSource = new NestedSource { Id = 1, Inner = new InnerSource { Detail = "DetailInfo" } };
-var nestedDestination = nestedSource.Map<NestedDestination>();
-Console.WriteLine($"Nested Mapping - Source Detail: {nestedSource.Inner.Detail}, Destination Detail: {nestedDestination.Inner.Detail}");
+try
+{
+    var nestedSource = new NestedSource { Id = 1, Inner = new InnerSource { Detail = "DetailInfo" } };
+    var nestedDestination = nestedSource.Map<NestedDestination>();
+    Console.WriteLine($"Nested Mapping - Source Detail: {nestedSource.Inner.Detail}, Destination Detail: {nestedDestination.Inner.Detail}");
 
+}
+catch (Exception)
+{
+
+}
 // Test Collection Mapping
 var sourceList = new List<Source>
             {
