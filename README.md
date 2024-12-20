@@ -6,240 +6,156 @@
 ---
 
 ## Features
-1. **Simple Object Mapping**: Map properties between objects with identical names and types.
-2. **Nested Object Mapping**: Automatically maps nested properties.
-3. **Collection Mapping**: Handles collections of objects and maps them to the destination collection type.
-4. **Custom Mapping**: Supports custom transformations using lambda expressions.
-5. **Asynchronous Mapping**: Enables async operations for custom transformations.
-6. **Null Safety**: Handles null values gracefully.
-7. Support mapping **private** properties.
+- **Simple Object Mapping**: Map properties between objects with identical names and types.
+- **Nested Object Mapping**: Automatically maps nested properties.
+- **Collection Mapping**: Handles collections of objects and maps them to the destination collection type.
+- **Custom Mapping**: Supports custom transformations using lambda expressions.
+- **Asynchronous Mapping**: Enables async operations for custom transformations.
+- **Null Safety**: Handles null values gracefully. :🆕
+- **Support mapping private properties**.
+- **Type Safety**: Ensures type safety by matching properties based on type rather than just name, preventing errors when types differ. :🆕
 
 ---
 
 ## Installation
-1. Clone the project or copy the `ObjectMapper.cs` file into your project.
-2. Include the namespace `Mappy` in your files to use the mapping functionality:
-   ```csharp
-   using Mappy;
-   ```
+To install Mappy, you can use NuGet:
 
----
+``` shell
+dotnet add package Mappy.dotNet --version 1.0.0
+```
 
 ## Usage
 
-### 1. Basic Mapping
+### 1. Simple Mapping
 ```csharp
-var product = new Product
-{
-    Id = 1,
-    Name = "Laptop",
-    Price = 1200.50m,
-    Category = new Category { Id = 10, Name = "Electronics" }
-};
-
-var productDto = product.Map<ProductDto>();
-Console.WriteLine($"Product DTO: {productDto.Name}, {productDto.Category.Name}");
+var source = new Source { Id = 1, Name = "Test" };
+var destination = source.Map<Destination>();
+Console.WriteLine($"Simple Mapping - Source Name: {source.Name}, Destination Name: {destination.Name}");
+```
+``` shell
+Simple Mapping - Source Name: Test, Destination Name: Test
 ```
 
-### 2. Custom Mapping
+### 2. Nested Object Mapping
 ```csharp
-var product = new Product
-{
-    Id = 1,
-    Name = "Laptop",
-    Price = 1200.50m
-};
+var nestedSource = new NestedSource { Id = 1, Inner = new InnerSource { Detail = "DetailInfo" } };
+var nestedDestination = nestedSource.Map<NestedDestination>();
+Console.WriteLine($"Nested Mapping - Source Detail: {nestedSource.Inner.Detail}, Destination Detail: {nestedDestination.Inner.Detail}");
+```
+``` shell
+Nested Mapping - Source Detail: DetailInfo, Destination Detail: DetailInfo
+```
 
-var productDto = product.Map<ProductDto>(dto =>
+### 3. Collection Mapping
+```csharp
+var sourceList = new List<Source>
+            {
+                new Source { Id = 1, Name = "Item1" },
+                new Source { Id = 2, Name = "Item2" }
+            };
+var destinationList = sourceList.MapCollection<Destination>();
+Console.WriteLine("Collection Mapping:");
+foreach (var item in destinationList)
 {
-    dto.Name = product.Name.ToUpper();
+    Console.WriteLine($"Source Name: {item.Name}");
+}
+```
+``` shell
+Collection Mapping:
+Source Name: Item1
+Source Name: Item2
+```
+
+### 4. Async Mapping
+```csharp
+var asyncSource = new Source { Id = 2, Name = "AsyncTest" };
+var asyncDestination = await asyncSource.MapAsync<Destination>(async d =>
+{
+    d.Name = await Task.FromResult(asyncSource.Name + " - Async");
+});
+Console.WriteLine($"Async Mapping - Source Name: {asyncSource.Name}, Destination Name: {asyncDestination.Name}");
+```
+``` shell
+Async Mapping - Source Name: AsyncTest, Destination Name: AsyncTest - Async
+```
+
+### 5. Custom Mapping
+```csharp
+var source4 = new Source { Id = 1, Name = "Test" };
+
+var customDestination = source.Map<Destination>(d =>
+{
+    // Custom logic: Add a suffix to the Name property
+    d.Name = $"{source.Name} - Custom Mapped";
 });
 
-Console.WriteLine($"Custom Product DTO: {productDto.Name}");
+Console.WriteLine($"Custom Mapping - Source Name: {source.Name}, Destination Name: {customDestination.Name}");
+```
+``` shell
+Custom Mapping - Source Name: Test, Destination Name: Test - Custom Mapped
 ```
 
-### 3. Async Mapping
-```csharp
-var product = new Product { Id = 1, Name = "Laptop", Price = 1200.50m };
 
-var productDto = await product.MapAsync<ProductDto>(async dto =>
+### 6. Asynchronous Custom Mapping
+```csharp
+var asyncSource4 = new Source { Id = 2, Name = "AsyncTest" };
+
+var asyncCustomDestination = await asyncSource.MapAsync<Destination>(async d =>
 {
-    dto.Name = await Task.FromResult(dto.Name.ToUpper());
+    // Custom async logic: Simulate an async transformation
+    d.Name = await Task.FromResult(source.Name + " - Async Custom");
 });
 
-Console.WriteLine($"Async Product DTO: {productDto.Name}");
+Console.WriteLine($"Async Custom Mapping - Source Name: {asyncSource.Name}, Destination Name: {asyncCustomDestination.Name}");
+```
+``` shell
+Async Custom Mapping - Source Name: AsyncTest, Destination Name: Test - Async Custom
 ```
 
-### 4. Collection Mapping
+### 7. Type Safety :🆕
 ```csharp
-var products = new List<Product>
+try
 {
-    new Product { Id = 1, Name = "Laptop", Price = 1200.50m },
-    new Product { Id = 2, Name = "Phone", Price = 800.00m }
-};
-
-var productDtos = products.MapCollection<ProductDto>();
-productDtos.ForEach(dto => Console.WriteLine($"{dto.Id} - {dto.Name}"));
-```
-
-### 5. Mapping Nested Collections
-```csharp
-var order = new Order
+    var source = new Source { Id = 1, Name = "Test" };
+    var invalidDestination = source.Map<InvalidDestination>(); // Will throw InvalidOperationException due to type mismatch
+}
+catch (InvalidOperationException ex)
 {
-    Id = 100,
-    CustomerName = "John Doe",
-    Items = new List<OrderItem>
-    {
-        new OrderItem { ProductName = "Laptop", Quantity = 1 },
-        new OrderItem { ProductName = "Mouse", Quantity = 2 }
-    }
-};
-
-var orderDto = order.Map<OrderDto>();
-Console.WriteLine($"Order DTO: {orderDto.CustomerName}");
-orderDto.Items.ForEach(item => Console.WriteLine($"{item.ProductName} - {item.Quantity}"));
-```
-
----
-
-## Code Reference
-
-### ObjectMapper.cs
-```csharp
-using System;
-using System.Collections;
-using System.Collections.Generic;
-using System.Linq;
-using System.Reflection;
-using System.Threading.Tasks;
-
-namespace SimpleMapper
-{
-    public static class ObjectMapper
-    {
-        public static TDestination Map<TDestination>(this object source, Action<TDestination> customMapping = null) where TDestination : new()
-        {
-            if (source == null) throw new ArgumentNullException(nameof(source));
-
-            var destination = new TDestination();
-            MapProperties(source, destination);
-
-            customMapping?.Invoke(destination);
-
-            return destination;
-        }
-
-        public static async Task<TDestination> MapAsync<TDestination>(this object source, Func<TDestination, Task> customMapping = null) where TDestination : new()
-        {
-            if (source == null) throw new ArgumentNullException(nameof(source));
-
-            var destination = new TDestination();
-            MapProperties(source, destination);
-
-            if (customMapping != null)
-            {
-                await customMapping(destination);
-            }
-
-            return destination;
-        }
-
-        public static List<TDestination> MapCollection<TDestination>(this IEnumerable source) where TDestination : new()
-        {
-            if (source == null) throw new ArgumentNullException(nameof(source));
-
-            var destinationList = new List<TDestination>();
-            foreach (var item in source)
-            {
-                destinationList.Add(item.Map<TDestination>());
-            }
-            return destinationList;
-        }
-
-        public static async Task<List<TDestination>> MapCollectionAsync<TDestination>(this IEnumerable source, Func<TDestination, Task> customMapping = null) where TDestination : new()
-        {
-            if (source == null) throw new ArgumentNullException(nameof(source));
-
-            var destinationList = new List<TDestination>();
-            foreach (var item in source)
-            {
-                var destination = await item.MapAsync(customMapping);
-                destinationList.Add(destination);
-            }
-            return destinationList;
-        }
-
-        private static void MapProperties(object source, object destination)
-        {
-            var sourceType = source.GetType();
-            var destinationType = destination.GetType();
-            var sourceProperties = sourceType.GetProperties(BindingFlags.Public | BindingFlags.Instance);
-            var destinationProperties = destinationType.GetProperties(BindingFlags.Public | BindingFlags.Instance);
-
-            foreach (var sourceProp in sourceProperties)
-            {
-                var destProp = destinationProperties.FirstOrDefault(p => p.Name == sourceProp.Name && p.CanWrite);
-
-                if (destProp == null) continue;
-
-                var sourceValue = sourceProp.GetValue(source);
-                if (sourceValue == null)
-                {
-                    destProp.SetValue(destination, null);
-                    continue;
-                }
-
-                if (IsSimpleType(destProp.PropertyType))
-                {
-                    destProp.SetValue(destination, sourceValue);
-                }
-                else if (typeof(IEnumerable).IsAssignableFrom(destProp.PropertyType) && destProp.PropertyType != typeof(string))
-                {
-                    var collection = MapCollection(sourceValue as IEnumerable, destProp.PropertyType);
-                    destProp.SetValue(destination, collection);
-                }
-                else
-                {
-                    var nestedObject = Activator.CreateInstance(destProp.PropertyType);
-                    MapProperties(sourceValue, nestedObject);
-                    destProp.SetValue(destination, nestedObject);
-                }
-            }
-        }
-
-        private static object MapCollection(IEnumerable source, Type destinationType)
-        {
-            if (source == null) return null;
-
-            var itemType = destinationType.IsGenericType
-                ? destinationType.GetGenericArguments()[0]
-                : destinationType.GetElementType();
-
-            var destinationList = (IList)Activator.CreateInstance(typeof(List<>).MakeGenericType(itemType));
-            foreach (var item in source)
-            {
-                var mappedItem = Activator.CreateInstance(itemType);
-                MapProperties(item, mappedItem);
-                destinationList.Add(mappedItem);
-            }
-
-            return destinationList;
-        }
-
-        private static bool IsSimpleType(Type type)
-        {
-            return type.IsPrimitive || type.IsValueType || type == typeof(string) || type == typeof(DateTime);
-        }
-    }
+    Console.WriteLine($"Type Safety Error: {ex.Message}");
 }
 ```
 
+### 8. Performance Test (Simple & Async) :🆕
+```csharp
+int count = 10000;
+var largeSourceList = Enumerable.Range(1, count).Select(i => new Source { Id = i, Name = "Test" }).ToList();
+
+// Measuring Simple Mapping Performance
+var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+var largeDestinationList = largeSourceList.MapCollection<Destination>();
+stopwatch.Stop();
+Console.WriteLine($"Simple Collection Mapping Performance: {stopwatch.ElapsedMilliseconds} ms for {count} items");
+
+// Measuring Asynchronous Mapping Performance
+stopwatch.Restart();
+var largeAsyncDestinationList = await largeSourceList.MapCollectionAsync<Destination>(async d =>
+{
+    d.Name = await Task.FromResult("Async - " + d.Name);
+});
+stopwatch.Stop();
+Console.WriteLine($"Asynchronous Collection Mapping Performance: {stopwatch.ElapsedMilliseconds} ms for {count} items");
+```
+``` shell
+Simple Collection Mapping Performance: 18 ms for 10000 items
+Asynchronous Collection Mapping Performance: 29 ms for 10000 items
+```
 ---
 
-## Notes
-1. **Performance**: This mapper is not optimized for very large datasets or scenarios with high-frequency mapping needs. Use with caution for such cases.
-2. **Limitations**:   
-   - Cannot handle circular references.
+## Performance Considerations
+While Mappy is effective for typical scenarios, it may not be optimized for very large datasets or scenarios with high-frequency mapping needs. The performance of the library could be impacted by reflection-based operations, especially for large collections and complex nested mappings.
+
+## Contributing
+Contributions to Mappy are welcome! If you find any issues or have suggestions for improvements, feel free to create a pull request or report an issue.
 
 ## License
 This project is open source and can be freely modified and distributed.
