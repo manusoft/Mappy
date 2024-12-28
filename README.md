@@ -26,7 +26,7 @@
 To install Mappy, you can use NuGet:
 
 ``` shell
-dotnet add package Mappy.dotNet --version 2.0.0
+dotnet add package Mappy.dotNet --version 2.1.0
 ```
 
 ## Usage
