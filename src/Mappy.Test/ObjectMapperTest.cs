@@ -138,6 +138,47 @@ public class ObjectMapperTest
         // Assert
         Assert.True(duration < 1000, "Mapping took longer than expected");
     }
+
+    [Fact]
+    public void Map_ShouldMapPublicAndPrivateProperties()
+    {
+        // Arrange
+        var source = new PrivateSourceClass(10, "secret");
+
+        // Act
+        var destination = source.Map<PrivateDestinationClass>();
+
+        // Assert
+        Assert.Equal(source.PublicProperty, destination.PublicProperty);
+        Assert.Equal(source.GetType().GetProperty("PrivateProperty", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
+                               .GetValue(source), destination.GetType().GetProperty("PrivateProperty").GetValue(destination));
+    }
+
+    [Fact]
+    public void Map_CircularReferenceInCollection_ShouldHandleGracefully()
+    {
+        // Arrange
+        var circularSource = new CircularSource
+        {
+            Name = "Root",
+            Children = new List<CircularSource>
+        {
+            new CircularSource { Name = "Child1" },
+            new CircularSource { Name = "Child2" }
+        }
+        };
+        circularSource.Children.Add(circularSource); // Circular reference
+
+        // Act
+        var result = circularSource.Map<CircularDestination>();
+
+        // Assert
+        Assert.NotNull(result);
+        Assert.Equal("Root", result.Name);
+        Assert.NotNull(result.Children);
+        Assert.Equal(3, result.Children.Count);
+        Assert.Null(result.Children[2]); // Circular reference should map to null
+    } 
 }
 
 public class Source
@@ -163,4 +204,35 @@ public class InvalidDestination
 {
     public DateTime Id { get; set; } // Different type from Source.Id
     public string Name { get; set; }
+}
+
+public class PrivateSourceClass
+{
+    public int PublicProperty { get; set; }
+    private string PrivateProperty { get; set; }
+
+    public PrivateSourceClass(int publicValue, string privateValue)
+    {
+        PublicProperty = publicValue;
+        PrivateProperty = privateValue;
+    }
+}
+
+public class PrivateDestinationClass
+{
+    public int PublicProperty { get; set; }
+    public string PrivateProperty { get; set; }
+}
+
+public class CircularSource
+{
+    public string Name { get; set; }
+    public List<CircularSource> Children { get; set; } = new List<CircularSource>();
+}
+
+
+public class CircularDestination
+{
+    public string Name { get; set; }
+    public List<CircularDestination> Children { get; set; } = new List<CircularDestination>();
 }
