@@ -1,4 +1,7 @@
+![NuGet Version](https://img.shields.io/nuget/v/Mappy.dotNet) ![NuGet Downloads](https://img.shields.io/nuget/dt/Mappy.dotNet)
+
 # 🍁Mappy - Object Mapping
+![8253945](https://github.com/user-attachments/assets/1c6efc2b-c138-4e57-a13e-4657744b556e)
 
 ## Introduction
 **Mappy** is a lightweight object mapping utility for C# applications. It allows you to easily map objects between models and DTOs, handle nested objects, and map collections. This utility supports both synchronous and asynchronous mapping operations, with options for custom transformations.
@@ -11,10 +14,12 @@
 - **Collection Mapping**: Handles collections of objects and maps them to the destination collection type.
 - **Custom Mapping**: Supports custom transformations using lambda expressions.
 - **Asynchronous Mapping**: Enables async operations for custom transformations.
-- **Null Safety**: Handles null values gracefully. :🆕
 - **Support mapping private properties**.
+- **Null Safety**: Handles null values gracefully. :🆕
 - **Type Safety**: Ensures type safety by matching properties based on type rather than just name, preventing errors when types differ. :🆕
-
+- **Circular Reference Handling**: Implements circular reference handling function. 🆕
+- **Performance**: Provides good performance for typical scenarios. 🆕
+  
 ---
 
 ## Installation
