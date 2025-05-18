@@ -1,4 +1,4 @@
-![NuGet Version](https://img.shields.io/nuget/v/Mappy.dotNet) ![NuGet Downloads](https://img.shields.io/nuget/dt/Mappy.dotNet)
+![Static Badge](https://img.shields.io/badge/Mappy-red) ![NuGet Version](https://img.shields.io/nuget/v/Mappy.dotNet) ![NuGet Downloads](https://img.shields.io/nuget/dt/Mappy.dotNet) ![.NET](https://img.shields.io/badge/.NET-8%20%7C%209-blueviolet)
 
 # 🍁Mappy - Object Mapping
 ![8253945](https://github.com/user-attachments/assets/1c6efc2b-c138-4e57-a13e-4657744b556e)
