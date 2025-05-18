@@ -9,6 +9,12 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Sample.ConsoleApp", "src\Sa
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Mappy.Test", "src\Mappy.Test\Mappy.Test.csproj", "{AED6EE39-6101-4BEC-888E-1C0783BF6011}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{02EA681E-C7D8-13C7-8484-4AC65E1B71E8}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "test", "test", "{067657C4-4F23-449F-8EEE-655F09C148EB}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "sample", "sample", "{69194ACB-B163-4659-A334-C1845A3C3A3A}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -30,5 +36,13 @@ Global
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{B684905A-14C7-4B42-8B35-6DB2F76FAF47} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
+		{647A263A-BF19-4D13-B099-4FA0D8117EA4} = {69194ACB-B163-4659-A334-C1845A3C3A3A}
+		{AED6EE39-6101-4BEC-888E-1C0783BF6011} = {067657C4-4F23-449F-8EEE-655F09C148EB}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {20718428-4656-4195-A7F8-53BB11BA6C40}
 	EndGlobalSection
 EndGlobal
