@@ -1,3 +1,5 @@
+![NuGet Version](https://img.shields.io/nuget/v/Mappy.dotNet) ![.NET](https://img.shields.io/badge/.NET-8%20%7C%209-blueviolet)
+
 # 🍁Mappy - Object Mapping
 
 ## Introduction
@@ -14,15 +16,53 @@
 - **Null Safety**: Handles null values gracefully.
 - **Support mapping private properties**.
 - **Type Safety**: Ensures type safety by matching properties based on type rather than just name, preventing errors when types differ.
-- **Circular Reference Handling**: Implements circular reference handling function. 🆕
-- **Performance**: Provides good performance for typical scenarios. 🆕
+- **Circular Reference Handling**: Implements circular reference handling function. 
+- **Improved Type Checking**: Use `IsAssignableTo` for more robust type compatibility checks. 🆕
+- **Caching Reflection Data**: Cache `PropertyInfo` to reduce reflection overhead. 🆕
+- **Better Collection Handling**: Support additional collection types (e.g., arrays, `ICollection<T>`). 🆕
+- **Error Handling**: Add detailed exceptions for common failure cases. 🆕
+- **Configuration Options**: Introduce a mapping configuration for custom property mappings or exclusions 🆕
+- **Code Organization**: Split into smaller methods for better readability and maintainability. 🆕
+- **Performance Optimization**: Minimize unnecessary object creations and improve circular reference handling. 🆕
 ---
+
+### Key Enhancements and Refactorings:
+1. **Mapping Configuration**:
+   - Added `MappingConfiguration` to allow custom property mappings (e.g., mapping `SourcePropA` to `DestPropB`) and property exclusions.
+   - Example usage:
+     ```csharp
+     var config = new MappingConfiguration();
+     config.AddPropertyMapping(typeof(Source), typeof(Destination), "SourceName", "DestName");
+     config.ExcludeProperty(typeof(Source), typeof(Destination), "IgnoreProp");
+     var result = source.Map<Destination>(config: config);
+     ```
+
+2. **Performance Improvements**:
+   - Cached `PropertyInfo` using `ConcurrentDictionary` to reduce reflection overhead.
+   - Used `ReferenceEqualityComparer` for `HashSet<object>` to optimize circular reference checks.
+   - Minimized object allocations in critical paths.
+
+3. **Better Collection Handling**:
+   - Added support for arrays in `MapCollection` by converting `List<T>` to `T[]` when needed.
+   - Improved handling of non-generic and generic collections.
+
+4. **Improved Type Safety**:
+   - Replaced `IsAssignableFrom` with `IsAssignableTo` for clearer type compatibility checks.
+   - Added detailed exception messages for type mismatches and instantiation failures.
+
+5. **Code Organization**:
+   - Split `MapProperties` into smaller methods (`MapProperty`) for better readability.
+   - Consolidated common logic across sync and async methods.
+
+6. **Error Handling**:
+   - Wrapped property mapping in try-catch blocks to provide context-specific error messages.
+   - Ensured null checks for created instances.
 
 ## Installation
 To install Mappy, you can use NuGet:
 
 ``` shell
-dotnet add package Mappy.dotNet --version 2.1.0
+dotnet add package Mappy.dotNet --version 3.0.0
 ```
 
 ## Usage
