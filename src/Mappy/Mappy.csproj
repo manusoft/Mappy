@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>	
-    <TargetFrameworks>net8.0;net9.0;</TargetFrameworks>
+    <TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
 	<NoWarn>CS8600,CS8602,CS8603,CS8604,CS8625</NoWarn>
@@ -14,18 +14,19 @@
     <PackageTags>Mappy;Mapper;AutoMapper;Mapster;Fast;Object;Mapping</PackageTags>
 	<PackageProjectUrl>https://github.com/manusoft/Mappy</PackageProjectUrl>
 	<RepositoryUrl>https://github.com/manusoft/Mappy</RepositoryUrl>
-    <PackageLicenseFile>LICENSE.md</PackageLicenseFile>
+    <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
 	<Icon>icon.png</Icon>
 	<PackageIcon>icon.png</PackageIcon>
 	<PackageReadmeFile>README.md</PackageReadmeFile>
-	<Version>3.0.0</Version>
+	<Version>3.1.0</Version>
+	<LangVersion>latest</LangVersion>
 	<IsPackable>true</IsPackable>
   </PropertyGroup>
 	
   <ItemGroup>
     <Content Include="icon.png" Pack="true" PackagePath="" />
 	<Content Include="README.md" Pack="true" PackagePath="" />
-    <Content Include="LICENSE.md" Pack="true" PackagePath="" />
+    <Content Include="LICENSE.txt" Pack="true" PackagePath="" />
   </ItemGroup>
 
 </Project>

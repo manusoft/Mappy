@@ -1,4 +1,4 @@
-![NuGet Version](https://img.shields.io/nuget/v/Mappy.dotNet) ![.NET](https://img.shields.io/badge/.NET-8%20%7C%209-blueviolet)
+![NuGet Version](https://img.shields.io/nuget/v/Mappy.dotNet) ![.NET](https://img.shields.io/badge/.NET%20%7C%208%20%7C%209%20%7C%2010-blueviolet)
 
 # 🍁Mappy - Object Mapping
 
