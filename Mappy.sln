@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 17
-VisualStudioVersion = 17.12.35527.113
+# Visual Studio Version 18
+VisualStudioVersion = 18.10.12201.205 stable
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Mappy", "src\Mappy\Mappy.csproj", "{B684905A-14C7-4B42-8B35-6DB2F76FAF47}"
 EndProject
@@ -14,6 +14,8 @@ EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "test", "test", "{067657C4-4F23-449F-8EEE-655F09C148EB}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "sample", "sample", "{69194ACB-B163-4659-A334-C1845A3C3A3A}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Mappy.Benchmarks", "src\Mappy.Benchmarks\Mappy.Benchmarks.csproj", "{BF558B5A-CF24-AEC0-9E95-B84F734DE7DC}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -33,6 +35,10 @@ Global
 		{AED6EE39-6101-4BEC-888E-1C0783BF6011}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{AED6EE39-6101-4BEC-888E-1C0783BF6011}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{AED6EE39-6101-4BEC-888E-1C0783BF6011}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BF558B5A-CF24-AEC0-9E95-B84F734DE7DC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BF558B5A-CF24-AEC0-9E95-B84F734DE7DC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BF558B5A-CF24-AEC0-9E95-B84F734DE7DC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BF558B5A-CF24-AEC0-9E95-B84F734DE7DC}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -41,6 +47,7 @@ Global
 		{B684905A-14C7-4B42-8B35-6DB2F76FAF47} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
 		{647A263A-BF19-4D13-B099-4FA0D8117EA4} = {69194ACB-B163-4659-A334-C1845A3C3A3A}
 		{AED6EE39-6101-4BEC-888E-1C0783BF6011} = {067657C4-4F23-449F-8EEE-655F09C148EB}
+		{BF558B5A-CF24-AEC0-9E95-B84F734DE7DC} = {02EA681E-C7D8-13C7-8484-4AC65E1B71E8}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {20718428-4656-4195-A7F8-53BB11BA6C40}

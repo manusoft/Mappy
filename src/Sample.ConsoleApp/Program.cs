@@ -80,33 +80,33 @@ Console.ReadKey();
 public class Source
 {
     public int Id { get; set; }
-    public string Name { get; set; }
+    public string Name { get; set; } = string.Empty;
 }
 
 public class Destination
 {
     public int Id { get; set; }
-    public string Name { get; set; }
+    public string Name { get; set; } = string.Empty;
 }
 
 public class NestedSource
 {
     public int Id { get; set; }
-    public InnerSource Inner { get; set; }
+    public InnerSource Inner { get; set; } = new InnerSource();
 }
 
 public class InnerSource
 {
-    public string Detail { get; set; }
+    public string Detail { get; set; } = string.Empty;
 }
 
 public class NestedDestination
 {
     public int Id { get; set; }
-    public InnerDestination Inner { get; set; }
+    public InnerDestination Inner { get; set; } = new InnerDestination();
 }
 
 public class InnerDestination
 {
-    public string Detail { get; set; }
+    public string Detail { get; set; } = string.Empty;
 }
