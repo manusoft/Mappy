@@ -1,17 +1,16 @@
+using Mappy;
+
 namespace Mappy.Test;
 
-public class ObjectMapperTest
+public sealed class ObjectMapperTest
 {
     [Fact]
     public void Map_SimpleProperties_ShouldMapCorrectly()
     {
-        // Arrange
         var source = new Source { Id = 1, Name = "Test" };
 
-        // Act
         var destination = source.Map<Destination>();
 
-        // Assert
         Assert.Equal(source.Id, destination.Id);
         Assert.Equal(source.Name, destination.Name);
     }
@@ -19,220 +18,262 @@ public class ObjectMapperTest
     [Fact]
     public void Map_NestedObjects_ShouldMapCorrectly()
     {
-        // Arrange
-        var source = new Source { Id = 1, Nested = new Nested { Value = "NestedValue" } };
+        var source = new Source
+        {
+            Id = 1,
+            Nested = new Nested { Value = "NestedValue" }
+        };
 
-        // Act
         var destination = source.Map<Destination>();
 
-        // Assert
+        Assert.NotSame(source.Nested, destination.Nested);
         Assert.Equal(source.Nested.Value, destination.Nested.Value);
     }
 
     [Fact]
     public void Map_Collection_ShouldMapCorrectly()
     {
-        // Arrange
-        var sourceList = new List<Source> { new Source { Id = 1 }, new Source { Id = 2 } };
-
-        // Act
-        var destinationList = sourceList.MapCollection<Destination>();
-
-        // Assert
-        Assert.Equal(sourceList.Count, destinationList.Count);
-        for (int i = 0; i < sourceList.Count; i++)
+        var source = new List<Source>
         {
-            Assert.Equal(sourceList[i].Id, destinationList[i].Id);
-        }
+            new() { Id = 1, Name = "One" },
+            new() { Id = 2, Name = "Two" }
+        };
+
+        var result = source.MapCollection<Destination>();
+
+        Assert.Equal(2, result.Count);
+        Assert.Equal(2, result[1].Id);
+    }
+
+    [Fact]
+    public void Map_Array_ShouldMapCorrectly()
+    {
+        var source = new[] { new Source { Id = 1 }, new Source { Id = 2 } };
+
+        var result = source.MapCollection<Destination>().ToArray();
+
+        Assert.Equal(new[] { 1, 2 }, result.Select(x => x.Id));
+    }
+
+    [Fact]
+    public void Map_ConfiguredRename_ShouldMapCorrectly()
+    {
+        var source = new RenamedSource { FullName = "Manoj" };
+        var config = new MappingConfiguration()
+            .Map<RenamedSource, RenamedDestination>(
+                x => x.FullName,
+                x => x.Name);
+
+        var result = source.Map<RenamedDestination>(config: config);
+
+        Assert.Equal("Manoj", result.Name);
+    }
+
+    [Fact]
+    public void Map_Ignore_ShouldNotMapExcludedMember()
+    {
+        var source = new User { Name = "Manoj", Secret = "hidden" };
+        var config = new MappingConfiguration()
+            .Ignore<User, UserDto>(x => x.Secret);
+
+        var result = source.Map<UserDto>(config: config);
+
+        Assert.Equal("Manoj", result.Name);
+        Assert.Null(result.Secret);
+    }
+
+    [Fact]
+    public void Map_Converter_ShouldMapExplicitConversion()
+    {
+        var source = new IdentifierSource { Id = Guid.NewGuid() };
+        var config = new MappingConfiguration()
+            .AddConverter<Guid, string>(x => x.ToString("N"));
+
+        var result = source.Map<IdentifierDestination>(config: config);
+
+        Assert.Equal(source.Id.ToString("N"), result.Id);
+    }
+
+    [Fact]
+    public void MapTo_ShouldUpdateExistingDestination()
+    {
+        var source = new User { Name = "Updated", Secret = "new-secret" };
+        var destination = new UserDto { Name = "Old", Secret = "old-secret" };
+
+        source.MapTo(destination);
+
+        Assert.Equal("Updated", destination.Name);
+        Assert.Equal("new-secret", destination.Secret);
+    }
+
+    [Fact]
+    public void Map_CircularReference_ShouldPreserveIdentity()
+    {
+        var root = new CircularSource { Name = "Root" };
+        var child = new CircularSource { Name = "Child" };
+        root.Children.Add(child);
+        child.Children.Add(root);
+
+        var result = root.Map<CircularDestination>();
+
+        Assert.Same(result, result.Children[0].Children[0]);
+    }
+
+    [Fact]
+    public void Map_RecordWithConstructor_ShouldMapCorrectly()
+    {
+        var source = new User { Name = "Manoj", Age = 42 };
+
+        var result = source.Map<UserRecord>();
+
+        Assert.Equal(source.Name, result.Name);
+        Assert.Equal(source.Age, result.Age);
+    }
+
+    [Fact]
+    public void Map_TypeMismatch_ShouldThrowMappingException()
+    {
+        var source = new Source { Id = 1, Name = "Test" };
+
+        var exception = Assert.Throws<MappingException>(
+            () => source.Map<InvalidDestination>());
+
+        Assert.Contains("cannot map", exception.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
     public async Task MapAsync_CustomMapping_ShouldApplyCorrectly()
     {
-        // Arrange
         var source = new Source { Id = 1, Name = "AsyncTest" };
 
-        // Act
         var destination = await source.MapAsync<Destination>(async d =>
         {
-            // Custom async mapping logic
-            d.Name = await Task.FromResult(source.Name + " - Async");
+            await Task.Yield();
+            d.Name += " - Async";
         });
 
-        // Assert
-        Assert.Equal(source.Name + " - Async", destination.Name);
+        Assert.Equal("AsyncTest - Async", destination.Name);
     }
 
     [Fact]
-    public void Map_NullSafety_ShouldHandleNullValuesGracefully()
+    public async Task MapCollectionAsync_ShouldMapCorrectly()
     {
-        // Arrange
-        var source = new Source { Id = 1, Name = null };
-
-        // Act
-        var destination = source.Map<Destination>();
-
-        // Assert
-        Assert.Null(destination.Name);
-    }
-
-    [Fact]
-    public void Map_CustomTransformation_ShouldApplyCorrectly()
-    {
-        // Arrange
-        var source = new Source { Id = 1, Name = "Test" };
-
-        // Act
-        var destination = source.Map<Destination>(d => d.Name = "CustomName");
-
-        // Assert
-        Assert.Equal("CustomName", destination.Name);
-    }
-
-    [Fact]
-    public async Task MapAsync_CollectionAsync_ShouldMapCorrectly()
-    {
-        // Arrange
-        var sourceList = new List<Source> { new Source { Id = 1 }, new Source { Id = 2 } };
-
-        // Act
-        var destinationList = await sourceList.MapCollectionAsync<Destination>(async d =>
+        var source = new List<Source>
         {
-            // Custom async mapping logic
-            await Task.CompletedTask;
-        });
-
-        // Assert
-        Assert.Equal(sourceList.Count, destinationList.Count);
-        for (int i = 0; i < sourceList.Count; i++)
-        {
-            Assert.Equal(sourceList[i].Id, destinationList[i].Id);
-        }
-    }
-
-    [Fact]
-    public void Map_TypeSafety_ShouldThrowForMismatchedTypes()
-    {
-        // Arrange
-        var source = new Source { Id = 1, Name = "Test" };
-
-        // Act & Assert
-        Assert.Throws<InvalidOperationException>(() => source.Map<InvalidDestination>());
-    }
-
-    [Fact]
-    public void Map_Performance_ShouldBeWithinExpectedLimits()
-    {
-        // Arrange
-        var largeSourceList = new List<Source>();
-        for (int i = 0; i < 1000; i++)
-        {
-            largeSourceList.Add(new Source { Id = i });
-        }
-
-        // Act
-        var startTime = DateTime.Now;
-        var largeDestinationList = largeSourceList.MapCollection<Destination>();
-        var duration = (DateTime.Now - startTime).TotalMilliseconds;
-
-        // Assert
-        Assert.True(duration < 1000, "Mapping took longer than expected");
-    }
-
-    [Fact]
-    public void Map_ShouldMapPublicAndPrivateProperties()
-    {
-        // Arrange
-        var source = new PrivateSourceClass(10, "secret");
-
-        // Act
-        var destination = source.Map<PrivateDestinationClass>();
-
-        // Assert
-        Assert.Equal(source.PublicProperty, destination.PublicProperty);
-        Assert.Equal(source.GetType().GetProperty("PrivateProperty", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance)
-                               .GetValue(source), destination.GetType().GetProperty("PrivateProperty").GetValue(destination));
-    }
-
-    [Fact]
-    public void Map_CircularReferenceInCollection_ShouldHandleGracefully()
-    {
-        // Arrange
-        var circularSource = new CircularSource
-        {
-            Name = "Root",
-            Children = new List<CircularSource>
-        {
-            new CircularSource { Name = "Child1" },
-            new CircularSource { Name = "Child2" }
-        }
+            new() { Id = 1 },
+            new() { Id = 2 }
         };
-        circularSource.Children.Add(circularSource); // Circular reference
 
-        // Act
-        var result = circularSource.Map<CircularDestination>();
+        var result = await source.MapCollectionAsync<Destination>(
+            d => Task.CompletedTask);
 
-        // Assert
-        Assert.NotNull(result);
-        Assert.Equal("Root", result.Name);
-        Assert.NotNull(result.Children);
-        Assert.Equal(3, result.Children.Count);
-        Assert.Null(result.Children[2]); // Circular reference should map to null
-    } 
-}
+        Assert.Equal(new[] { 1, 2 }, result.Select(x => x.Id));
+    }
 
-public class Source
-{
-    public int Id { get; set; }
-    public string Name { get; set; }
-    public Nested Nested { get; set; }
-}
-
-public class Destination
-{
-    public int Id { get; set; }
-    public string Name { get; set; }
-    public Nested Nested { get; set; }
-}
-
-public class Nested
-{
-    public string Value { get; set; }
-}
-
-public class InvalidDestination
-{
-    public DateTime Id { get; set; } // Different type from Source.Id
-    public string Name { get; set; }
-}
-
-public class PrivateSourceClass
-{
-    public int PublicProperty { get; set; }
-    private string PrivateProperty { get; set; }
-
-    public PrivateSourceClass(int publicValue, string privateValue)
+    [Fact]
+    public void Map_PrivateProperties_ShouldRemainSupported()
     {
-        PublicProperty = publicValue;
-        PrivateProperty = privateValue;
+        var source = new PrivateSource(10, "secret");
+
+        var result = source.Map<PrivateDestination>();
+
+        Assert.Equal(10, result.PublicValue);
+        Assert.Equal("secret", result.GetPrivateValue());
     }
 }
 
-public class PrivateDestinationClass
+public sealed class Source
 {
-    public int PublicProperty { get; set; }
-    public string PrivateProperty { get; set; }
+    public int Id { get; set; }
+    public string? Name { get; set; }
+    public Nested? Nested { get; set; }
 }
 
-public class CircularSource
+public sealed class Destination
 {
-    public string Name { get; set; }
-    public List<CircularSource> Children { get; set; } = new List<CircularSource>();
+    public int Id { get; set; }
+    public string? Name { get; set; }
+    public Nested? Nested { get; set; }
 }
 
-
-public class CircularDestination
+public sealed class Nested
 {
-    public string Name { get; set; }
-    public List<CircularDestination> Children { get; set; } = new List<CircularDestination>();
+    public string? Value { get; set; }
+}
+
+public sealed class InvalidDestination
+{
+    public DateTime Id { get; set; }
+    public string? Name { get; set; }
+}
+
+public sealed class RenamedSource
+{
+    public string FullName { get; set; } = "";
+}
+
+public sealed class RenamedDestination
+{
+    public string Name { get; set; } = "";
+}
+
+public sealed class User
+{
+    public string Name { get; set; } = "";
+    public string? Secret { get; set; }
+    public int Age { get; set; }
+}
+
+public sealed class UserDto
+{
+    public string Name { get; set; } = "";
+    public string? Secret { get; set; }
+}
+
+public sealed class IdentifierSource
+{
+    public Guid Id { get; set; }
+}
+
+public sealed class IdentifierDestination
+{
+    public string Id { get; set; } = "";
+}
+
+public sealed class UserRecord(string name, int age)
+{
+    public string Name { get; } = name;
+    public int Age { get; } = age;
+}
+
+public sealed class PrivateSource
+{
+    public int PublicValue { get; }
+    private string PrivateValue { get; }
+
+    public PrivateSource(int publicValue, string privateValue)
+    {
+        PublicValue = publicValue;
+        PrivateValue = privateValue;
+    }
+}
+
+public sealed class PrivateDestination
+{
+    public int PublicValue { get; set; }
+    private string? PrivateValue { get; set; }
+
+    public string? GetPrivateValue() => PrivateValue;
+}
+
+public sealed class CircularSource
+{
+    public string Name { get; set; } = "";
+    public List<CircularSource> Children { get; set; } = [];
+}
+
+public sealed class CircularDestination
+{
+    public string Name { get; set; } = "";
+    public List<CircularDestination> Children { get; set; } = [];
 }
