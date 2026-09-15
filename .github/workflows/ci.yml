@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test .NET ${{ matrix.dotnet }}
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        dotnet:
+          - '8.0.x'
+          - '9.0.x'
+          - '10.0.x'
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ matrix.dotnet }}
+
+      - name: Restore
+        run: dotnet restore Mappy.sln
+
+      - name: Build
+        run: dotnet build Mappy.sln --configuration Release --no-restore
+
+      - name: Test
+        run: dotnet test Mappy.sln --configuration Release --no-build --verbosity normal
