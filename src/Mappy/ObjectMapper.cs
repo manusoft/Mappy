@@ -1,16 +1,14 @@
-﻿using System.Collections;
-using System.Collections.Concurrent;
-using System.Reflection;
+using System.Collections;
 
 namespace Mappy;
 
+/// <summary>
+/// Static mapping API. Reflection metadata is cached and property accessors are compiled once per type pair.
+/// </summary>
 public static class ObjectMapper
 {
-    private static readonly ConcurrentDictionary<Type, PropertyInfo[]> _propertyCache = new();
-    private static readonly MappingConfiguration _defaultConfig = new();
-
     /// <summary>
-    /// Maps an object to a destination type, allowing for custom transformations.
+    /// Maps values from the source object into a new instance of the destination type.
     /// </summary>
     /// <typeparam name="TDestination"></typeparam>
     /// <param name="source"></param>
@@ -18,24 +16,26 @@ public static class ObjectMapper
     /// <param name="config"></param>
     /// <param name="handleCircularReferences"></param>
     /// <returns></returns>
-    /// <exception cref="ArgumentNullException"></exception>
     public static TDestination Map<TDestination>(
-         this object source,
-         Action<TDestination> customMapping = null,
-         MappingConfiguration config = null,
-         bool handleCircularReferences = true)
-         where TDestination : new()
+        this object source,
+        Action<TDestination>? customMapping = null,
+        MappingConfiguration? config = null,
+        bool handleCircularReferences = true)
     {
-        if (source == null) throw new ArgumentNullException(nameof(source));
+        ArgumentNullException.ThrowIfNull(source);
 
-        var destination = new TDestination();
-        MapProperties(source, destination, config ?? _defaultConfig, handleCircularReferences ? new HashSet<object>(ReferenceEqualityComparer.Instance) : null);
+        var options = new MappingOptions
+        {
+            PreserveReferences = handleCircularReferences
+        };
+
+        var destination = MappingEngine.Map<TDestination>(source, config, options);
         customMapping?.Invoke(destination);
         return destination;
     }
 
     /// <summary>
-    /// Maps an object to a destination type asynchronously, allowing for custom async transformations.
+    /// Maps values from the source object into a new instance of the destination type asynchronously.
     /// </summary>
     /// <typeparam name="TDestination"></typeparam>
     /// <param name="source"></param>
@@ -43,241 +43,109 @@ public static class ObjectMapper
     /// <param name="config"></param>
     /// <param name="handleCircularReferences"></param>
     /// <returns></returns>
-    /// <exception cref="ArgumentNullException"></exception>
     public static async Task<TDestination> MapAsync<TDestination>(
         this object source,
-        Func<TDestination, Task> customMapping = null,
-        MappingConfiguration config = null,
+        Func<TDestination, Task>? customMapping = null,
+        MappingConfiguration? config = null,
         bool handleCircularReferences = true)
-        where TDestination : new()
     {
-        if (source == null) throw new ArgumentNullException(nameof(source));
+        var destination = source.Map<TDestination>(
+            customMapping: null,
+            config: config,
+            handleCircularReferences: handleCircularReferences);
 
-        var destination = new TDestination();
-        MapProperties(source, destination, config ?? _defaultConfig, handleCircularReferences ? new HashSet<object>(ReferenceEqualityComparer.Instance) : null);
-        if (customMapping != null) await customMapping(destination);
+        if (customMapping is not null)
+            await customMapping(destination).ConfigureAwait(false);
+
         return destination;
     }
 
     /// <summary>
-    /// Maps an enumerable collection to a list of the destination type.
+    /// Maps values from the source collection into a new list of the destination type.
     /// </summary>
     /// <typeparam name="TDestination"></typeparam>
     /// <param name="source"></param>
     /// <param name="config"></param>
     /// <returns></returns>
-    /// <exception cref="ArgumentNullException"></exception>
     public static List<TDestination> MapCollection<TDestination>(
-            this IEnumerable source,
-            MappingConfiguration config = null)
-            where TDestination : new()
+        this IEnumerable source,
+        MappingConfiguration? config = null)
     {
-        if (source == null) throw new ArgumentNullException(nameof(source));
+        ArgumentNullException.ThrowIfNull(source);
 
-        var destinationList = new List<TDestination>();
+        var result = source is ICollection collection
+            ? new List<TDestination>(collection.Count)
+            : new List<TDestination>();
+
         foreach (var item in source)
         {
-            destinationList.Add(item.Map<TDestination>(config: config));
+            if (item is null)
+            {
+                result.Add(default!);
+                continue;
+            }
+
+            result.Add(item.Map<TDestination>(config: config));
         }
-        return destinationList;
+
+        return result;
     }
 
     /// <summary>
-    /// Maps an enumerable collection to a list of the destination type asynchronously.
+    /// Maps values from the source collection into a new list of the destination type asynchronously.
     /// </summary>
     /// <typeparam name="TDestination"></typeparam>
     /// <param name="source"></param>
     /// <param name="customMapping"></param>
     /// <param name="config"></param>
     /// <returns></returns>
-    /// <exception cref="ArgumentNullException"></exception>
     public static async Task<List<TDestination>> MapCollectionAsync<TDestination>(
         this IEnumerable source,
-        Func<TDestination, Task> customMapping = null,
-        MappingConfiguration config = null)
-        where TDestination : new()
+        Func<TDestination, Task>? customMapping = null,
+        MappingConfiguration? config = null)
     {
-        if (source == null) throw new ArgumentNullException(nameof(source));
+        ArgumentNullException.ThrowIfNull(source);
 
-        var destinationList = new List<TDestination>();
-        foreach (var item in source)
-        {
-            destinationList.Add(await item.MapAsync(customMapping, config));
-        }
-        return destinationList;
-    }
-
-    /// <summary>
-    /// Maps a property from source to destination, handling collections and simple types.
-    /// </summary>
-    /// <param name="source"></param>
-    /// <param name="destination"></param>
-    /// <param name="config"></param>
-    /// <param name="visited"></param>
-    /// <exception cref="InvalidOperationException"></exception>
-    private static void MapProperties(
-        object source,
-        object destination,
-        MappingConfiguration config,
-        HashSet<object> visited)
-    {
-        if (source == null || destination == null) return;
-        if (visited?.Contains(source) == true) return;
-
-        visited?.Add(source);
-
-        var sourceType = source.GetType();
-        var destType = destination.GetType();
-        var sourceProps = GetCachedProperties(sourceType);
-        var destProps = GetCachedProperties(destType).ToDictionary(p => p.Name, p => p);
-        var mappings = config.PropertyMappings.GetValueOrDefault((sourceType, destType)) ?? new Dictionary<string, string>();
-
-        foreach (var sourceProp in sourceProps)
-        {
-            var sourcePropName = sourceProp.Name;
-            if (config.ExcludedProperties.Contains((sourceType, destType, sourcePropName))) continue;
-
-            var destPropName = mappings.GetValueOrDefault(sourcePropName, sourcePropName);
-            if (!destProps.TryGetValue(destPropName, out var destProp) || !destProp.CanWrite) continue;
-
-            var sourceValue = sourceProp.GetValue(source);
-            if (sourceValue == null)
-            {
-                destProp.SetValue(destination, null);
-                continue;
-            }
-
-            try
-            {
-                MapProperty(sourceProp, destProp, sourceValue, destination, config, visited);
-            }
-            catch (Exception ex)
-            {
-                throw new InvalidOperationException(
-                    $"Failed to map property '{sourcePropName}' from {sourceType.Name} to {destType.Name}: {ex.Message}",
-                    ex);
-            }
-        }
-
-        visited?.Remove(source);
-    } 
-
-    /// <summary>
-    /// Checks if a type is simple (primitive or string).
-    /// </summary>
-    /// <param name="sourceProp"></param>
-    /// <param name="destProp"></param>
-    /// <param name="sourceValue"></param>
-    /// <param name="destination"></param>
-    /// <param name="config"></param>
-    /// <param name="visited"></param>
-    /// <exception cref="InvalidOperationException"></exception>
-    private static void MapProperty(
-        PropertyInfo sourceProp,
-        PropertyInfo destProp,
-        object sourceValue,
-        object destination,
-        MappingConfiguration config,
-        HashSet<object> visited)
-    {
-        if (IsSimpleType(destProp.PropertyType))
-        {
-            if (!sourceProp.PropertyType.IsAssignableTo(destProp.PropertyType))
-            {
-                throw new InvalidOperationException(
-                    $"Type mismatch: cannot map from {sourceProp.PropertyType.Name} to {destProp.PropertyType.Name}");
-            }
-            destProp.SetValue(destination, sourceValue);
-        }
-        else if (typeof(IEnumerable).IsAssignableFrom(destProp.PropertyType) && destProp.PropertyType != typeof(string))
-        {
-            var collection = MapCollection(sourceValue as IEnumerable, destProp.PropertyType, config, visited);
-            destProp.SetValue(destination, collection);
-        }
-        else
-        {
-            var nestedObject = Activator.CreateInstance(destProp.PropertyType)
-                ?? throw new InvalidOperationException($"Cannot create instance of {destProp.PropertyType.Name}");
-            MapProperties(sourceValue, nestedObject, config, visited);
-            destProp.SetValue(destination, nestedObject);
-        }
-    }
-
-    /// <summary>
-    /// Checks if a type is simple (primitive or string).
-    /// </summary>
-    /// <param name="source"></param>
-    /// <param name="destinationType"></param>
-    /// <param name="config"></param>
-    /// <param name="visited"></param>
-    /// <returns></returns>
-    /// <exception cref="InvalidOperationException"></exception>
-    private static object MapCollection(
-        IEnumerable source,
-        Type destinationType,
-        MappingConfiguration config,
-        HashSet<object> visited)
-    {
-        if (source == null) return null;
-
-        var itemType = destinationType.IsGenericType
-            ? destinationType.GetGenericArguments()[0]
-            : destinationType.GetElementType() ?? typeof(object);
-
-        var listType = typeof(List<>).MakeGenericType(itemType);
-        var destinationList = (IList)Activator.CreateInstance(listType)
-            ?? throw new InvalidOperationException($"Cannot create collection of type {listType.Name}");
+        var result = source is ICollection collection
+            ? new List<TDestination>(collection.Count)
+            : new List<TDestination>();
 
         foreach (var item in source)
         {
-            if (item == null || visited?.Contains(item) == true)
+            if (item is null)
             {
-                destinationList.Add(null);
+                result.Add(default!);
                 continue;
             }
 
-            visited?.Add(item);
-            var mappedItem = Activator.CreateInstance(itemType)
-                ?? throw new InvalidOperationException($"Cannot create instance of {itemType.Name}");
-            MapProperties(item, mappedItem, config, visited);
-            destinationList.Add(mappedItem);
+            var destination = await item.MapAsync(customMapping, config)
+                .ConfigureAwait(false);
+            result.Add(destination);
         }
 
-        if (destinationType.IsArray)
-        {
-            var array = Array.CreateInstance(itemType, destinationList.Count);
-            destinationList.CopyTo(array, 0);
-            return array;
-        }
-
-        return destinationList;
+        return result;
     }
 
     /// <summary>
-    /// Caches the properties of a type to avoid reflection overhead.
+    /// Maps values from the source object into an existing destination instance.
     /// </summary>
-    /// <param name="type"></param>
-    /// <returns></returns>
-    private static PropertyInfo[] GetCachedProperties(Type type)
+    public static void MapTo<TSource, TDestination>(
+        this TSource source,
+        TDestination destination,
+        MappingConfiguration? config = null,
+        MappingOptions? options = null)
+        where TSource : notnull
+        where TDestination : notnull
     {
-        return _propertyCache.GetOrAdd(
-            type,
-            t => t.GetProperties(BindingFlags.Public | BindingFlags.Instance | BindingFlags.NonPublic));
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(destination);
+
+        var context = new MappingContext(options ?? new MappingOptions());
+        var plan = MappingPlan.Get(
+            source.GetType(),
+            destination.GetType(),
+            context.Options.IncludeNonPublicProperties);
+
+        plan.MapInto(source, destination, context, config);
     }
-
-    /// <summary>
-    /// Checks if a type is simple (primitive or string).
-    /// </summary>
-    /// <param name="type"></param>
-    /// <returns></returns>
-    private static bool IsSimpleType(Type type)
-    {
-        return type.IsPrimitive || type.IsValueType || type == typeof(string) || type == typeof(DateTime);
-    }
-
-
 }
-
-
-
-

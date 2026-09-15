@@ -4,12 +4,12 @@
     <TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-	<NoWarn>CS8600,CS8602,CS8603,CS8604,CS8625</NoWarn>
+	<LangVersion>latest</LangVersion>
 	<AssemblyName>Mappy</AssemblyName>
 	<RootNamespace>Mappy</RootNamespace>
 	<PackageId>Mappy.dotNet</PackageId>
 	<Description>Mappy is a lightweight object mapping utility for C# applications.</Description>
-	<Copyright>Copyright © 2025 ManuHub</Copyright>
+	<Copyright>Copyright © 2025-2026 ManuHub</Copyright>
 	<Authors>Manojbabu</Authors>    
     <PackageTags>Mappy;Mapper;AutoMapper;Mapster;Fast;Object;Mapping</PackageTags>
 	<PackageProjectUrl>https://github.com/manusoft/Mappy</PackageProjectUrl>
@@ -18,7 +18,12 @@
 	<Icon>icon.png</Icon>
 	<PackageIcon>icon.png</PackageIcon>
 	<PackageReadmeFile>README.md</PackageReadmeFile>
-	<Version>3.1.0</Version>
+	<Version>4.0.0</Version>
+    <PackageVersion>4.0.0</PackageVersion>
+    <PackageReleaseNotes>Mappy 4.0 introduces cached mapping plans, compiled property accessors, explicit configuration, converters, MapTo, constructor mapping, reference preservation, improved collections, and detailed MappingException errors.</PackageReleaseNotes>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <Deterministic>true</Deterministic>
 	<LangVersion>latest</LangVersion>
 	<IsPackable>true</IsPackable>
   </PropertyGroup>
