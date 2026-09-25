@@ -27,16 +27,10 @@ jobs:
         run: dotnet restore src/Mappy/Mappy.csproj
 
       - name: Build
-        run: dotnet build src/Mappy/Mappy.csproj \
-          --configuration Release \
-          --no-restore
+        run: dotnet build src/Mappy/Mappy.csproj --configuration Release --no-restore
 
       - name: Pack
-        run: dotnet pack src/Mappy/Mappy.csproj \
-          --configuration Release \
-          --no-build \
-          --no-restore \
-          -o artifacts
+        run: dotnet pack src/Mappy/Mappy.csproj --configuration Release --no-build --no-restore -o artifacts
 
       - name: Upload package
         uses: actions/upload-artifact@v4
