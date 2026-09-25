@@ -25,16 +25,14 @@ internal static class MappingEngine
         MappingConfiguration? config)
     {
         if (source is null)
-            return null;
+        {
+            if (IsNullableType(destinationType))
+                return null;
 
-        if ((IsSimpleType(destinationType) || destinationType == typeof(object) ||
-             destinationType.IsInterface) &&
-            destinationType.IsInstanceOfType(source))
-            return source;
-
-        if (context.Options.PreserveReferences && !source.GetType().IsValueType &&
-            context.TryGet(source, out var existing))
-            return existing;
+            throw new MappingException(
+                $"Cannot map null to non-nullable destination type '{destinationType.FullName}'.",
+                destinationType: destinationType);
+        }
 
         if (config?.Converters.TryGetValue((source.GetType(), destinationType), out var converter) == true)
         {
@@ -53,6 +51,10 @@ internal static class MappingEngine
         if (TryConvert(source, destinationType, out var converted))
             return converted;
 
+        if (context.Options.PreserveReferences && !source.GetType().IsValueType &&
+            context.TryGet(source, out var existing))
+            return existing;
+
         if (TryGetCollectionElementType(destinationType, out var elementType))
             return MapCollection((IEnumerable)source, destinationType, elementType!, context, config);
 
@@ -64,6 +66,10 @@ internal static class MappingEngine
                 source.GetType(), destinationType);
         }
 
+        // Complex objects must always go through a mapping plan. In particular,
+        // do not return an assignable complex source instance directly: doing so
+        // would make nested mappings reuse the source object instead of creating
+        // a destination object.
         var plan = MappingPlan.Get(
             source.GetType(),
             destinationType,
@@ -83,12 +89,26 @@ internal static class MappingEngine
         if (destinationUnderlying.IsAssignableFrom(sourceUnderlying))
             return true;
 
-        if (IsSimpleType(sourceType) && IsSimpleType(destinationType) &&
-            sourceUnderlying == destinationUnderlying)
+        if (!IsSimpleType(sourceUnderlying) || !IsSimpleType(destinationUnderlying))
+            return !IsSimpleType(sourceUnderlying) && !IsSimpleType(destinationUnderlying);
+
+        if (sourceUnderlying == destinationUnderlying)
             return true;
 
-        // Complex objects can be recursively mapped through a cached plan.
-        return !IsSimpleType(sourceType) && !IsSimpleType(destinationType);
+        // These conversions are supported by TryConvert below.
+        if (sourceUnderlying.IsEnum && destinationUnderlying == typeof(string))
+            return true;
+
+        if (sourceUnderlying == typeof(string) && destinationUnderlying.IsEnum)
+            return true;
+
+        if (sourceUnderlying.IsEnum && destinationUnderlying.IsPrimitive)
+            return true;
+
+        if (sourceUnderlying.IsPrimitive && destinationUnderlying.IsEnum)
+            return true;
+
+        return false;
     }
 
     private static object MapCollection(
@@ -127,7 +147,6 @@ internal static class MappingEngine
             return set!;
         }
 
-        // ICollection<T>, IReadOnlyCollection<T>, IEnumerable<T>, IList<T> etc.
         if (destinationType.IsAssignableFrom(listType))
             return list;
 
@@ -164,8 +183,7 @@ internal static class MappingEngine
             return elementType is not null;
         }
 
-        if (type.IsGenericType &&
-            typeof(IEnumerable).IsAssignableFrom(type))
+        if (type.IsGenericType && typeof(IEnumerable).IsAssignableFrom(type))
         {
             elementType = type.GetGenericArguments()[0];
             return true;
@@ -182,27 +200,30 @@ internal static class MappingEngine
     private static bool TryConvert(object source, Type destinationType, out object? result)
     {
         var sourceType = source.GetType();
+        var nullableDestination = Nullable.GetUnderlyingType(destinationType);
+        var targetType = nullableDestination ?? destinationType;
 
-        // Direct assignment is only appropriate for simple values.
-        // Complex objects must continue through the mapping plan so
-        // nested objects are mapped to new destination instances.
-        if (IsSimpleType(destinationType) &&
-            destinationType.IsInstanceOfType(source))
+        if (IsSimpleType(destinationType) && destinationType.IsInstanceOfType(source))
         {
             result = source;
             return true;
         }
 
-        var nullableDestination = Nullable.GetUnderlyingType(destinationType);
-        var targetType = nullableDestination ?? destinationType;
+        if (sourceType == targetType && IsSimpleType(targetType))
+        {
+            result = source;
+            return true;
+        }
+
+        if (sourceType.IsEnum && targetType == typeof(string))
+        {
+            result = source.ToString();
+            return true;
+        }
 
         if (targetType.IsEnum && source is string text)
         {
-            if (Enum.TryParse(
-                    targetType,
-                    text,
-                    ignoreCase: true,
-                    out var parsed))
+            if (Enum.TryParse(targetType, text, ignoreCase: true, out var parsed))
             {
                 result = parsed;
                 return true;
@@ -218,24 +239,28 @@ internal static class MappingEngine
             }
             catch
             {
-                // Let normal mapping/conversion handling continue.
+                // Continue with normal mapping failure handling.
             }
         }
 
-        // Same underlying simple type, e.g.:
-        // int -> int?
-        if (sourceType == targetType &&
-            (IsSimpleType(sourceType) || IsSimpleType(targetType)))
+        if (sourceType.IsEnum && targetType.IsPrimitive)
         {
-            result = source;
-            return true;
+            try
+            {
+                result = Convert.ChangeType(source, targetType);
+                return true;
+            }
+            catch
+            {
+                // Continue with normal mapping failure handling.
+            }
         }
 
         result = null;
         return false;
     }
 
-    private static bool IsSimpleType(Type type) =>
+    internal static bool IsSimpleType(Type type) =>
         SimpleTypeCache.GetOrAdd(type, static t =>
         {
             var underlying = Nullable.GetUnderlyingType(t) ?? t;
@@ -243,9 +268,14 @@ internal static class MappingEngine
                    underlying.IsEnum ||
                    underlying == typeof(string) ||
                    underlying == typeof(decimal) ||
+                   underlying == typeof(Guid) ||
                    underlying == typeof(DateTime) ||
                    underlying == typeof(DateTimeOffset) ||
                    underlying == typeof(TimeSpan) ||
-                   underlying == typeof(Guid);
+                   underlying == typeof(DateOnly) ||
+                   underlying == typeof(TimeOnly);
         });
+
+    internal static bool IsNullableType(Type type) =>
+        !type.IsValueType || Nullable.GetUnderlyingType(type) is not null;
 }

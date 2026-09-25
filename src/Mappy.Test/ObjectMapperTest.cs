@@ -1,5 +1,3 @@
-using Mappy;
-
 namespace Mappy.Test;
 
 public sealed class ObjectMapperTest
@@ -128,6 +126,64 @@ public sealed class ObjectMapperTest
 
         Assert.Equal(source.Name, result.Name);
         Assert.Equal(source.Age, result.Age);
+    }
+
+    [Fact]
+    public void Map_RecordWithNullableDateOnly_ShouldMapCorrectly()
+    {
+        var source = new EmployeeSource
+        {
+            Id = "1",
+            Code = "EMP001",
+            Name = "Manoj",
+            Designation = "Developer",
+            Department = "Engineering",
+            Email = "manoj@example.com",
+            Phone = "123456789",
+            IdentityUserId = "identity-1",
+            JoiningDate = new DateOnly(2026, 1, 15),
+            TerminationDate = null,
+            Status = RecordStatus.Active,
+            ConcurrencyStamp = "stamp"
+        };
+
+        var result = source.Map<EmployeeListResponse>();
+
+        Assert.Equal(source.Id, result.Id);
+        Assert.Equal(source.Code, result.Code);
+        Assert.Equal(source.Name, result.Name);
+        Assert.Equal(source.JoiningDate, result.JoiningDate);
+        Assert.Null(result.TerminationDate);
+        Assert.Equal(source.Status, result.Status);
+    }
+
+    [Fact]
+    public void Map_RecordWithEnumToStringConstructorParameter_ShouldMapCorrectly()
+    {
+        var source = new SpeciesSource
+        {
+            Id = "species-1",
+            Code = "BRO",
+            Name = "Broiler",
+            Category = SpeciesCategory.Broiler
+        };
+
+        var result = source.Map<SpeciesLookupItem>();
+
+        Assert.Equal(source.Id, result.Id);
+        Assert.Equal(source.Code, result.Code);
+        Assert.Equal(source.Name, result.Name);
+        Assert.Equal(nameof(SpeciesCategory.Broiler), result.Category);
+    }
+
+    [Fact]
+    public void Map_TimeOnly_ShouldMapCorrectly()
+    {
+        var source = new TimeSource { StartTime = new TimeOnly(8, 30) };
+
+        var result = source.Map<TimeDestination>();
+
+        Assert.Equal(source.StartTime, result.StartTime);
     }
 
     [Fact]
@@ -276,4 +332,71 @@ public sealed class CircularDestination
 {
     public string Name { get; set; } = "";
     public List<CircularDestination> Children { get; set; } = [];
+}
+
+
+public sealed class EmployeeSource
+{
+    public string Id { get; set; } = "";
+    public string Code { get; set; } = "";
+    public string Name { get; set; } = "";
+    public string? Designation { get; set; }
+    public string? Department { get; set; }
+    public string? Email { get; set; }
+    public string? Phone { get; set; }
+    public string? IdentityUserId { get; set; }
+    public DateOnly? JoiningDate { get; set; }
+    public DateOnly? TerminationDate { get; set; }
+    public RecordStatus Status { get; set; }
+    public string ConcurrencyStamp { get; set; } = "";
+}
+
+public sealed record EmployeeListResponse(
+    string Id,
+    string Code,
+    string Name,
+    string? Designation,
+    string? Department,
+    string? Email,
+    string? Phone,
+    string? IdentityUserId,
+    DateOnly? JoiningDate,
+    DateOnly? TerminationDate,
+    RecordStatus Status,
+    string ConcurrencyStamp);
+
+public enum RecordStatus
+{
+    Active,
+    Inactive
+}
+
+public sealed class SpeciesSource
+{
+    public string Id { get; set; } = "";
+    public string Code { get; set; } = "";
+    public string Name { get; set; } = "";
+    public SpeciesCategory Category { get; set; }
+}
+
+public enum SpeciesCategory
+{
+    Broiler,
+    Layer
+}
+
+public sealed record SpeciesLookupItem(
+    string Id,
+    string Code,
+    string Name,
+    string Category);
+
+public sealed class TimeSource
+{
+    public TimeOnly StartTime { get; set; }
+}
+
+public sealed class TimeDestination
+{
+    public TimeOnly StartTime { get; set; }
 }

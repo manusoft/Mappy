@@ -30,14 +30,9 @@ internal sealed class MappingPlan
             .Select(MemberAccessor.Create)
             .ToDictionary(x => x.Property.Name, StringComparer.OrdinalIgnoreCase);
 
-        _constructor = ConstructorPlan.TryCreate(sourceMembers, destinationType);
-
-        var constructorMembers = _constructor?.ParameterNames ??
-            new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
         _sourceMembers = sourceMembers;
         _destinationMembers = destinationMembers;
-
+        _constructor = ConstructorPlan.TryCreate(sourceMembers, destinationType);
     }
 
     public Type SourceType { get; }
@@ -95,18 +90,30 @@ internal sealed class MappingPlan
         {
             var sourceName = sourceMember.Property.Name;
 
-            if (config?.ExcludedProperties.Contains((SourceType, DestinationType, sourceName)) == true)
+            if (config?.ExcludedProperties.Contains(
+                    (SourceType, DestinationType, sourceName)) == true)
+            {
                 continue;
+            }
 
-            var destinationName = mappings?.GetValueOrDefault(sourceName) ?? sourceName;
-            if (!_destinationMembers.TryGetValue(destinationName, out var destinationMember))
-                continue;
+            var destinationName =
+                mappings?.GetValueOrDefault(sourceName) ?? sourceName;
 
-            // Constructor-bound members have already been populated.
-            if (_constructor?.ParameterNames.Contains(destinationMember.Property.Name) == true)
+            if (!_destinationMembers.TryGetValue(
+                    destinationName,
+                    out var destinationMember))
+            {
                 continue;
+            }
+
+            if (_constructor?.ParameterNames.Contains(
+                    destinationMember.Property.Name) == true)
+            {
+                continue;
+            }
 
             object? sourceValue;
+
             try
             {
                 sourceValue = sourceMember.Getter(source);
@@ -114,20 +121,31 @@ internal sealed class MappingPlan
             catch (Exception ex)
             {
                 throw new MappingException(
-                    $"Unable to read member '{sourceName}' while mapping {SourceType.Name} to {DestinationType.Name}.",
-                    SourceType, DestinationType, sourceName, ex);
+                    $"Unable to read member '{sourceName}' while mapping " +
+                    $"{SourceType.Name} to {DestinationType.Name}.",
+                    SourceType,
+                    DestinationType,
+                    sourceName,
+                    ex);
             }
 
             if (sourceValue is null)
             {
-                if (!context.Options.IgnoreNullValues && destinationMember.CanWrite &&
-                    IsNullable(destinationMember.Property.PropertyType))
+                if (!context.Options.IgnoreNullValues &&
+                    destinationMember.CanWrite &&
+                    MappingEngine.IsNullableType(
+                        destinationMember.Property.PropertyType))
+                {
                     destinationMember.Setter!(destination, null);
+                }
+
                 continue;
             }
 
             if (!destinationMember.CanWrite)
+            {
                 continue;
+            }
 
             try
             {
@@ -142,14 +160,32 @@ internal sealed class MappingPlan
             catch (MappingException ex)
             {
                 throw new MappingException(
-                    $"Failed to map member '{sourceName}' from {SourceType.Name} to {DestinationType.Name}: {ex.Message}",
-                    SourceType, DestinationType, sourceName, ex);
+                    $"Failed to map member '{sourceName}' from " +
+                    $"{SourceType.Name} to {DestinationType.Name}: {ex.Message}",
+                    SourceType,
+                    DestinationType,
+                    sourceName,
+                    ex);
             }
         }
     }
 
     private object CreateDefaultDestination()
     {
+        if (DestinationType.IsValueType)
+        {
+            try
+            {
+                return Activator.CreateInstance(DestinationType)!;
+            }
+            catch (Exception ex)
+            {
+                throw new MappingException(
+                    $"Destination type '{DestinationType.FullName}' could not be instantiated.",
+                    SourceType, DestinationType, innerException: ex);
+            }
+        }
+
         try
         {
             return Activator.CreateInstance(DestinationType, nonPublic: true)
@@ -163,93 +199,6 @@ internal sealed class MappingPlan
                 $"Destination type '{DestinationType.FullName}' has no parameterless constructor. " +
                 "Use a mappable constructor or provide a custom mapping.",
                 SourceType, DestinationType, innerException: ex);
-        }
-    }
-
-    private static bool IsNullable(Type type) =>
-        !type.IsValueType || Nullable.GetUnderlyingType(type) is not null;
-}
-
-internal sealed class ConstructorPlan
-{
-    private readonly ConstructorInfo _constructor;
-    private readonly IReadOnlyList<(ParameterInfo Parameter, MemberAccessor Source)> _parameters;
-
-    private ConstructorPlan(ConstructorInfo constructor,
-        IReadOnlyList<(ParameterInfo Parameter, MemberAccessor Source)> parameters)
-    {
-        _constructor = constructor;
-        _parameters = parameters;
-    }
-
-    public HashSet<string> ParameterNames =>
-        _parameters.Select(x => x.Parameter.Name!)
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
-
-    public static ConstructorPlan? TryCreate(
-        IReadOnlyDictionary<string, MemberAccessor> sourceMembers,
-        Type destinationType)
-    {
-        if (destinationType.GetConstructor(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic, null, Type.EmptyTypes, null) is not null)
-            return null;
-
-        var constructors = destinationType
-            .GetConstructors(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
-            .OrderByDescending(c => c.GetParameters().Length);
-
-        foreach (var constructor in constructors)
-        {
-            var parameters = constructor.GetParameters();
-            var matches = new List<(ParameterInfo, MemberAccessor)>();
-            var valid = true;
-
-            foreach (var parameter in parameters)
-            {
-                if (parameter.Name is null ||
-                    !sourceMembers.TryGetValue(parameter.Name, out var source) ||
-                    !MappingEngine.CanMapType(source.Property.PropertyType, parameter.ParameterType))
-                {
-                    valid = false;
-                    break;
-                }
-
-                matches.Add((parameter, source));
-            }
-
-            if (valid)
-                return new ConstructorPlan(constructor, matches);
-        }
-
-        return null;
-    }
-
-    public object Create(object source, MappingContext context, MappingConfiguration? config)
-    {
-        var args = new object?[_parameters.Count];
-
-        for (var i = 0; i < _parameters.Count; i++)
-        {
-            var (parameter, sourceMember) = _parameters[i];
-            var value = sourceMember.Getter(source);
-
-            if (value is null)
-            {
-                args[i] = null;
-                continue;
-            }
-
-            args[i] = MappingEngine.MapValue(value, parameter.ParameterType, context, config);
-        }
-
-        try
-        {
-            return _constructor.Invoke(args);
-        }
-        catch (TargetInvocationException ex)
-        {
-            throw new MappingException(
-                $"Constructor mapping failed for '{_constructor.DeclaringType?.FullName}'.",
-                innerException: ex.InnerException ?? ex);
         }
     }
 }
