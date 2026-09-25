@@ -1,5 +1,3 @@
-using System.Runtime.CompilerServices;
-
 namespace Mappy;
 
 internal sealed class MappingContext

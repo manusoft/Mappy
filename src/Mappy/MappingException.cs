@@ -21,7 +21,8 @@ public sealed class MappingException : InvalidOperationException
     public string? MemberName { get; }
 
     /// <summary>
-    /// Initializes a new instance of the <see cref="MappingException"/> class with a specified error message, source type, destination type, member name, and a reference to the inner exception that is the cause of this exception.
+    /// Initializes a new instance of the <see cref="MappingException"/> class with a specified error message, 
+    /// source type, destination type, member name, and a reference to the inner exception that is the cause of this exception.
     /// </summary>
     /// <param name="message"></param>
     /// <param name="sourceType"></param>
