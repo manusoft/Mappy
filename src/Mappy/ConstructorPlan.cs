@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Reflection;
 
 namespace Mappy;
@@ -16,8 +17,7 @@ internal sealed class ConstructorPlan
     }
 
     public HashSet<string> ParameterNames =>
-        _parameters.Select(x => x.Parameter.Name!)
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        new HashSet<string>(_parameters.Select(x => x.Parameter.Name!), StringComparer.OrdinalIgnoreCase);
 
     public static ConstructorPlan? TryCreate(
         IReadOnlyDictionary<string, MemberAccessor> sourceMembers,

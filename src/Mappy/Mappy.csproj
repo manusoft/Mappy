@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>	
-    <TargetFrameworks>net8.0;net9.0;net10.0</TargetFrameworks>
+    <TargetFrameworks>netstandard2.0;net10.0</TargetFrameworks>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
 	<LangVersion>latest</LangVersion>
@@ -18,9 +18,9 @@
 	<Icon>icon.png</Icon>
 	<PackageIcon>icon.png</PackageIcon>
 	<PackageReadmeFile>README.md</PackageReadmeFile>
-	<Version>4.0.1</Version>
-    <PackageVersion>4.0.1</PackageVersion>
-	<PackageReleaseNotes>Mappy 4.0.1 fixes nullable DateOnly and TimeOnly mapping, improves constructor mapping for records and immutable types, supports enum-to-string constructor parameters, and adds regression coverage for nullable and immutable destinations.</PackageReleaseNotes>
+	<Version>4.1.0</Version>
+    <PackageVersion>4.1.0</PackageVersion>
+	<PackageReleaseNotes>Mappy 4.1.0 introduces support for DateOnly and TimeOnly types, enhances constructor mapping for records and immutable types, and provides improved handling for nullable destinations.</PackageReleaseNotes>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <Deterministic>true</Deterministic>

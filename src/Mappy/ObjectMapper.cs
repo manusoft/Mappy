@@ -1,3 +1,4 @@
+using System;
 using System.Collections;
 
 namespace Mappy;
@@ -22,7 +23,7 @@ public static class ObjectMapper
         MappingConfiguration? config = null,
         bool handleCircularReferences = true)
     {
-        ArgumentNullException.ThrowIfNull(source);
+        if (source is null) throw new ArgumentNullException(nameof(source));
 
         var options = new MappingOptions
         {
@@ -71,7 +72,7 @@ public static class ObjectMapper
         this IEnumerable source,
         MappingConfiguration? config = null)
     {
-        ArgumentNullException.ThrowIfNull(source);
+        if (source is null) throw new ArgumentNullException(nameof(source));
 
         var result = source is ICollection collection
             ? new List<TDestination>(collection.Count)
@@ -104,7 +105,7 @@ public static class ObjectMapper
         Func<TDestination, Task>? customMapping = null,
         MappingConfiguration? config = null)
     {
-        ArgumentNullException.ThrowIfNull(source);
+        if (source is null) throw new ArgumentNullException(nameof(source));
 
         var result = source is ICollection collection
             ? new List<TDestination>(collection.Count)
@@ -137,8 +138,8 @@ public static class ObjectMapper
         where TSource : notnull
         where TDestination : notnull
     {
-        ArgumentNullException.ThrowIfNull(source);
-        ArgumentNullException.ThrowIfNull(destination);
+        if (source is null) throw new ArgumentNullException(nameof(source));
+        if (destination is null) throw new ArgumentNullException(nameof(destination));
 
         var context = new MappingContext(options ?? new MappingOptions());
         var plan = MappingPlan.Get(

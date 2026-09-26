@@ -96,8 +96,9 @@ internal sealed class MappingPlan
                 continue;
             }
 
-            var destinationName =
-                mappings?.GetValueOrDefault(sourceName) ?? sourceName;
+            var destinationName = mappings != null && mappings.TryGetValue(sourceName, out var mappedName)
+                ? mappedName
+                : sourceName;
 
             if (!_destinationMembers.TryGetValue(
                     destinationName,

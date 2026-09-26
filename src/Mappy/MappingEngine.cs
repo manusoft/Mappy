@@ -12,7 +12,7 @@ internal static class MappingEngine
         MappingConfiguration? config,
         MappingOptions? options)
     {
-        ArgumentNullException.ThrowIfNull(source);
+        if (source is null) throw new ArgumentNullException(nameof(source));
 
         var context = new MappingContext(options ?? new MappingOptions());
         return (TDestination)MapValue(source, typeof(TDestination), context, config)!;
@@ -223,10 +223,15 @@ internal static class MappingEngine
 
         if (targetType.IsEnum && source is string text)
         {
-            if (Enum.TryParse(targetType, text, ignoreCase: true, out var parsed))
+            try
             {
-                result = parsed;
+                // Use Enum.Parse with ignoreCase and catch failures (Enum.Parse throws on failure).
+                result = Enum.Parse(targetType, text, ignoreCase: true);
                 return true;
+            }
+            catch
+            {
+                // Continue with normal mapping failure handling.
             }
         }
 
@@ -271,9 +276,12 @@ internal static class MappingEngine
                    underlying == typeof(Guid) ||
                    underlying == typeof(DateTime) ||
                    underlying == typeof(DateTimeOffset) ||
-                   underlying == typeof(TimeSpan) ||
-                   underlying == typeof(DateOnly) ||
-                   underlying == typeof(TimeOnly);
+                   underlying == typeof(TimeSpan)
+#if NET6_0_OR_GREATER
+                   || underlying == typeof(DateOnly)
+                   || underlying == typeof(TimeOnly)
+#endif
+               ;
         });
 
     internal static bool IsNullableType(Type type) =>

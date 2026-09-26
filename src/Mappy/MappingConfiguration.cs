@@ -21,7 +21,7 @@ public sealed class MappingConfiguration
     /// <returns></returns>
     public MappingConfiguration AddConverter<TSource, TDestination>(Func<TSource, TDestination> converter)
     {
-        ArgumentNullException.ThrowIfNull(converter);
+        if (converter is null) throw new ArgumentNullException(nameof(converter));
         Converters[(typeof(TSource), typeof(TDestination))] =
             value => converter((TSource)value);
         return this;
@@ -36,10 +36,10 @@ public sealed class MappingConfiguration
     /// <param name="destinationProperty"></param>
     public void AddPropertyMapping(Type sourceType, Type destinationType, string sourceProperty, string destinationProperty)
     {
-        ArgumentNullException.ThrowIfNull(sourceType);
-        ArgumentNullException.ThrowIfNull(destinationType);
-        ArgumentException.ThrowIfNullOrWhiteSpace(sourceProperty);
-        ArgumentException.ThrowIfNullOrWhiteSpace(destinationProperty);
+        if (sourceType is null) throw new ArgumentNullException(nameof(sourceType));
+        if (destinationType is null) throw new ArgumentNullException(nameof(destinationType));
+        if (string.IsNullOrWhiteSpace(sourceProperty)) throw new ArgumentException("Value cannot be null, empty, or whitespace.", nameof(sourceProperty));
+        if (string.IsNullOrWhiteSpace(destinationProperty)) throw new ArgumentException("Value cannot be null, empty, or whitespace.", nameof(destinationProperty));
 
         var key = (sourceType, destinationType);
         if (!PropertyMappings.TryGetValue(key, out var mappings))
@@ -59,9 +59,9 @@ public sealed class MappingConfiguration
     /// <param name="propertyName"></param>
     public void ExcludeProperty(Type sourceType, Type destinationType, string propertyName)
     {
-        ArgumentNullException.ThrowIfNull(sourceType);
-        ArgumentNullException.ThrowIfNull(destinationType);
-        ArgumentException.ThrowIfNullOrWhiteSpace(propertyName);
+        if (sourceType is null) throw new ArgumentNullException(nameof(sourceType));
+        if (destinationType is null) throw new ArgumentNullException(nameof(destinationType));
+        if (string.IsNullOrWhiteSpace(propertyName)) throw new ArgumentException("Value cannot be null, empty, or whitespace.", nameof(propertyName));
         ExcludedProperties.Add((sourceType, destinationType, propertyName));
     }
 
