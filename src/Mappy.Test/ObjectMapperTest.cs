@@ -25,7 +25,7 @@ public sealed class ObjectMapperTest
         var destination = source.Map<Destination>();
 
         Assert.NotSame(source.Nested, destination.Nested);
-        Assert.Equal(source.Nested.Value, destination.Nested.Value);
+        Assert.Equal(source.Nested.Value, destination.Nested!.Value);
     }
 
     [Fact]
@@ -236,6 +236,106 @@ public sealed class ObjectMapperTest
         Assert.Equal(10, result.PublicValue);
         Assert.Equal("secret", result.GetPrivateValue());
     }
+
+    [Fact]
+    public void Map_ParameterlessConstructorOnly_ShouldMapCorrectly()
+    {
+        var source = new Source { Id = 7, Name = "Parameterless" };
+
+        var result = source.Map<ParameterlessOnlyDestination>();
+
+        Assert.Equal(7, result.Id);
+        Assert.Equal("Parameterless", result.Name);
+    }
+
+    [Fact]
+    public void Map_TypeWithoutParameterlessConstructorOrMatchingConstructor_ShouldThrowMappingException()
+    {
+        var source = new Source { Id = 1, Name = "Test" };
+
+        Assert.Throws<MappingException>(() => source.Map<NoParameterlessOrMatchingConstructor>());
+    }
+
+    [Fact]
+    public void Map_RecordWithParameterlessAndPrimaryConstructor_ShouldMapAndAllowWithOverride()
+    {
+        var source = new EnrichedItemSource { Id = "item-1", Code = "ITM-01", Name = "Feed Bag" };
+
+        var result = source.Map<EnrichedItemResponse>() with { AvailableQuantity = 25.5m };
+
+        Assert.Equal("item-1", result.Id);
+        Assert.Equal("ITM-01", result.Code);
+        Assert.Equal("Feed Bag", result.Name);
+        Assert.Equal(25.5m, result.AvailableQuantity);
+    }
+
+    [Fact]
+    public void Map_UnmatchedConstructorParameter_ShouldDefaultAndSupportWithOverride()
+    {
+        var source = new EnrichedItemSource { Id = "item-2", Code = "ITM-02", Name = "Waterer" };
+
+        var result = source.Map<EnrichedItemResponse>() with { AvailableQuantity = 12m };
+
+        Assert.Equal("item-2", result.Id);
+        Assert.Equal(12m, result.AvailableQuantity);
+    }
+
+    [Fact]
+    public void MapCollection_SharedNestedReference_ShouldPreserveIdentityAcrossItems()
+    {
+        var sharedNested = new Nested { Value = "Shared" };
+        var items = new List<Source>
+        {
+            new() { Id = 1, Name = "First", Nested = sharedNested },
+            new() { Id = 2, Name = "Second", Nested = sharedNested }
+        };
+
+        var result = items.MapCollection<Destination>(handleCircularReferences: true);
+
+        Assert.Equal(2, result.Count);
+        Assert.NotNull(result[0].Nested);
+        Assert.Same(result[0].Nested, result[1].Nested);
+    }
+
+    [Fact]
+    public void Map_NullSource_ShouldThrowArgumentNullException()
+    {
+        Source? source = null;
+
+        Assert.Throws<ArgumentNullException>(() => source!.Map<Destination>());
+    }
+
+    [Fact]
+    public void Map_NumericConversions_ShouldMapBetweenIntAndDecimal()
+    {
+        var source = new NumericSource { IntValue = 15, DecimalValue = 99.75m };
+
+        var result = source.Map<NumericDestination>();
+
+        Assert.Equal(15m, result.IntValue);
+        Assert.Equal(100, result.DecimalValue);
+    }
+
+}
+
+public sealed class ParameterlessOnlyDestination
+{
+    public ParameterlessOnlyDestination()
+    {
+    }
+
+    public int Id { get; set; }
+    public string? Name { get; set; }
+}
+
+public sealed class NoParameterlessOrMatchingConstructor
+{
+    public NoParameterlessOrMatchingConstructor(Guid requiredUnmatchedId)
+    {
+        RequiredUnmatchedId = requiredUnmatchedId;
+    }
+
+    public Guid RequiredUnmatchedId { get; }
 }
 
 public sealed class Source
@@ -399,4 +499,34 @@ public sealed class TimeSource
 public sealed class TimeDestination
 {
     public TimeOnly StartTime { get; set; }
+}
+
+public sealed class EnrichedItemSource
+{
+    public string Id { get; set; } = "";
+    public string Code { get; set; } = "";
+    public string Name { get; set; } = "";
+}
+
+public sealed record EnrichedItemResponse(
+    string Id,
+    string Code,
+    string Name,
+    decimal AvailableQuantity)
+{
+    public EnrichedItemResponse() : this(string.Empty, string.Empty, string.Empty, 0m)
+    {
+    }
+}
+
+public sealed class NumericSource
+{
+    public int IntValue { get; set; }
+    public decimal DecimalValue { get; set; }
+}
+
+public sealed class NumericDestination
+{
+    public decimal IntValue { get; set; }
+    public int DecimalValue { get; set; }
 }

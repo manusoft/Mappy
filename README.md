@@ -1,160 +1,244 @@
-![Static Badge](https://img.shields.io/badge/Mappy-red) ![NuGet Version](https://img.shields.io/nuget/v/Mappy.dotNet) ![NuGet Downloads](https://img.shields.io/nuget/dt/Mappy.dotNet) ![.NET](https://img.shields.io/badge/.NET-8%20%7C%209-blueviolet)
+![Static Badge](https://img.shields.io/badge/Mappy-red) 
+![NuGet Version](https://img.shields.io/nuget/v/Mappy.dotNet)
+![NuGet Downloads](https://img.shields.io/nuget/dt/Mappy.dotNet)
+![License](https://img.shields.io/badge/license-MIT-green)
 
 # 🍁Mappy - Object Mapping
 ![8253945](https://github.com/user-attachments/assets/1c6efc2b-c138-4e57-a13e-4657744b556e)
 
-## Introduction
-**Mappy** is a lightweight object mapping utility for C# applications. It allows you to easily map objects between models and DTOs, handle nested objects, and map collections. This utility supports both synchronous and asynchronous mapping operations, with options for custom transformations.
+**Mappy** is a lightweight, convention-first object mapper for .NET with zero external runtime dependencies.
 
----
+It keeps the common case simple:
 
-## Features
-- **Simple Object Mapping**: Map properties between objects with identical names and types.
-- **Nested Object Mapping**: Automatically maps nested properties.
-- **Collection Mapping**: Handles collections of objects and maps them to the destination collection type.
-- **Custom Mapping**: Supports custom transformations using lambda expressions.
-- **Asynchronous Mapping**: Enables async operations for custom transformations.
-- **Support mapping private properties**.
-- **Null Safety**: Handles null values gracefully. :🆕
-- **Type Safety**: Ensures type safety by matching properties based on type rather than just name, preventing errors when types differ. :🆕
-- **Circular Reference Handling**: Implements circular reference handling function. 🆕
-- **Performance**: Provides good performance for typical scenarios. 🆕
-  
----
+```c#
+var dto = entity.Map<EntityDto>();
+```
+
+Mappy focuses on predictable mapping, cached mapping plans, compiled property accessors, nested objects, collections, positional records and immutable constructor types, circular and shared-reference tracking, explicit converters, and in-place updates.
+
+## Why Mappy?
+
+* Zero mandatory configuration—convention mapping works out of the box
+* Cached mapping plans per source, destination, and member visibility combination
+* Compiled property getters and setters
+* Nested object and collection/array mapping (`List<T>`, `HashSet<T>`, arrays, and compatible collection interfaces)
+* Constructor and positional `record` mapping, including unmatched/extra parameters
+* Circular and shared-reference preservation across graphs and collections
+* Strongly typed and string-based property rename and ignore rules
+* Explicit type converters plus enum and compatible numeric conversions
+* `MapTo` for updating existing instances and `customMapping` / `with` for post-map enrichment
+* Detailed `MappingException` diagnostics (`SourceType`, `DestinationType`, `MemberName`)
+* Targets `netstandard2.0` and `net10.0` with no external runtime dependencies
 
 ## Installation
-To install Mappy, you can use NuGet:
 
-``` shell
-dotnet add package Mappy.dotNet --version 2.1.0
+```bash
+dotnet add package Mappy.dotNet --version 4.2.0
+
 ```
 
-## Usage
+## Basic Mapping
 
-### 1. Simple Mapping
+Properties with matching names (case-insensitive) and compatible types are mapped automatically:
+
 ```csharp
-var source = new Source { Id = 1, Name = "Test" };
-var destination = source.Map<Destination>();
-Console.WriteLine($"Simple Mapping - Source Name: {source.Name}, Destination Name: {destination.Name}");
-```
-``` shell
-Simple Mapping - Source Name: Test, Destination Name: Test
-```
-
-### 2. Nested Object Mapping
-```csharp
-var nestedSource = new NestedSource { Id = 1, Inner = new InnerSource { Detail = "DetailInfo" } };
-var nestedDestination = nestedSource.Map<NestedDestination>();
-Console.WriteLine($"Nested Mapping - Source Detail: {nestedSource.Inner.Detail}, Destination Detail: {nestedDestination.Inner.Detail}");
-```
-``` shell
-Nested Mapping - Source Detail: DetailInfo, Destination Detail: DetailInfo
-```
-
-### 3. Collection Mapping
-```csharp
-var sourceList = new List<Source>
-            {
-                new Source { Id = 1, Name = "Item1" },
-                new Source { Id = 2, Name = "Item2" }
-            };
-var destinationList = sourceList.MapCollection<Destination>();
-Console.WriteLine("Collection Mapping:");
-foreach (var item in destinationList)
+var source = new User
 {
-    Console.WriteLine($"Source Name: {item.Name}");
+    Id = 1,
+    Name = "Manoj",
+    Email = "manoj@example.com"
+};
+
+var dto = source.Map<UserDto>();
+
+```
+
+## Nested Mapping
+
+Mappy recursively maps compatible nested objects:
+
+```text
+Order
+ └── Customer
+      ↓
+OrderDto
+ └── CustomerDto
+
+```
+
+```csharp
+var dto = order.Map<OrderDto>();
+
+```
+
+## Collections
+
+Map sequences into `List<T>`, arrays, `HashSet<T>`, or compatible collection interfaces:
+
+```csharp
+var result = users.MapCollection<UserDto>();
+UserDto[] array = users.MapCollection<UserDto>().ToArray();
+
+```
+
+In Mappy 4.2, `MapCollection` and `MapCollectionAsync` share a single mapping context across items by default so shared references across elements preserve their mapped identity (`handleCircularReferences: false` disables this if needed).
+
+## Renaming and Ignoring Properties
+
+Use strongly typed expressions when property names differ:
+
+```csharp
+var config = new MappingConfiguration()
+    .Map<User, UserDto>(
+        source => source.FullName,
+        destination => destination.Name)
+    .Ignore<User, UserDto>(source => source.PasswordHash);
+
+var dto = user.Map<UserDto>(config: config);
+
+```
+
+String-based configuration methods are also supported:
+
+```csharp
+var config = new MappingConfiguration();
+config.AddPropertyMapping(typeof(User), typeof(UserDto), "FullName", "Name");
+config.ExcludeProperty(typeof(User), typeof(UserDto), "PasswordHash");
+
+```
+
+## Explicit Converters and Conversions
+
+Register custom type converters when you need explicit transformation logic:
+
+```csharp
+var config = new MappingConfiguration()
+    .AddConverter<Guid, string>(value => value.ToString("N"));
+
+var dto = entity.Map<EntityDto>(config: config);
+
+```
+
+Mappy also supports enum-to-string, string-to-enum, enum-to-primitive, `DateOnly` / `TimeOnly`, and compatible numeric conversions while throwing `MappingException` on incompatible types instead of silently guessing.
+
+## Records, Constructors, and Post-Map Enrichment
+
+Mappy matches constructor parameters by name for immutable classes and positional `record` types without requiring a parameterless constructor:
+
+```csharp
+public sealed record ItemResponse(
+    string Id,
+    string Code,
+    string Name,
+    decimal AvailableQuantity)
+{
+    public ItemResponse() : this(string.Empty, string.Empty, string.Empty, 0m)
+    {
+    }
 }
-```
-``` shell
-Collection Mapping:
-Source Name: Item1
-Source Name: Item2
+
 ```
 
-### 4. Async Mapping
+When a destination has extra fields not present on the source (such as `AvailableQuantity`), they default cleanly and can be populated via `customMapping` (for mutable/settable properties) or a `with` expression (for `init`-only record properties):
+
 ```csharp
-var asyncSource = new Source { Id = 2, Name = "AsyncTest" };
-var asyncDestination = await asyncSource.MapAsync<Destination>(async d =>
+// With customMapping callback
+var dto = item.Map<ItemResponse>(
+    customMapping: r => r.AvailableQuantity = availableQty);
+
+// Or with a 'with' expression on init-only record members
+var immutableDto = item.Map<ItemResponse>() with { AvailableQuantity = availableQty };
+
+```
+
+## Mapping into an Existing Object
+
+Update an existing destination instance with `MapTo`:
+
+```csharp
+request.MapTo(
+    entity,
+    options: new MappingOptions
+    {
+        IgnoreNullValues = true
+    });
+
+```
+
+Setting `IgnoreNullValues = true` leaves existing destination properties untouched when source values are `null`—useful for partial/PATCH updates.
+
+## Circular References and Private Properties
+
+Object identity tracking is enabled by default via `MappingOptions.PreserveReferences`:
+
+```text
+Parent
+ └── Child
+      └── Parent
+
+```
+
+```csharp
+var result = source.Map<Destination>();
+bool isSameRoot = ReferenceEquals(result, result.Child.Parent); // true
+
+```
+
+Non-public instance properties are included by default for backward compatibility and can be toggled via `MappingOptions`:
+
+```csharp
+var options = new MappingOptions
 {
-    d.Name = await Task.FromResult(asyncSource.Name + " - Async");
+    IncludeNonPublicProperties = false,
+    PreserveReferences = true
+};
+
+```
+
+## Asynchronous Custom Mapping
+
+Core mapping runs synchronously. Use `MapAsync` or `MapCollectionAsync` when your post-mapping enrichment requires asynchronous calls:
+
+```csharp
+var dto = await source.MapAsync<UserDto>(async destination =>
+{
+    destination.DisplayName = await GetDisplayNameAsync(source.Id);
 });
-Console.WriteLine($"Async Mapping - Source Name: {asyncSource.Name}, Destination Name: {asyncDestination.Name}");
-```
-``` shell
-Async Mapping - Source Name: AsyncTest, Destination Name: AsyncTest - Async
-```
 
-### 5. Custom Mapping
-```csharp
-var source4 = new Source { Id = 1, Name = "Test" };
-
-var customDestination = source.Map<Destination>(d =>
+var list = await users.MapCollectionAsync<UserDto>(async destination =>
 {
-    // Custom logic: Add a suffix to the Name property
-    d.Name = $"{source.Name} - Custom Mapped";
+    destination.DisplayName = await GetDisplayNameAsync(destination.Id);
 });
 
-Console.WriteLine($"Custom Mapping - Source Name: {source.Name}, Destination Name: {customDestination.Name}");
-```
-``` shell
-Custom Mapping - Source Name: Test, Destination Name: Test - Custom Mapped
 ```
 
+## Performance and Design Goals
 
-### 6. Asynchronous Custom Mapping
-```csharp
-var asyncSource4 = new Source { Id = 2, Name = "AsyncTest" };
+Mappy builds and caches mapping plans with compiled expression getters and setters on first use so repeated mappings avoid per-item reflection overhead:
 
-var asyncCustomDestination = await asyncSource.MapAsync<Destination>(async d =>
-{
-    // Custom async logic: Simulate an async transformation
-    d.Name = await Task.FromResult(source.Name + " - Async Custom");
-});
+```text
+Source + Destination + Visibility
+               ↓
+         MappingPlan
+               ↓
+   Compiled Getters / Setters
+               ↓
+     Cached for Reuse
 
-Console.WriteLine($"Async Custom Mapping - Source Name: {asyncSource.Name}, Destination Name: {asyncCustomDestination.Name}");
-```
-``` shell
-Async Custom Mapping - Source Name: AsyncTest, Destination Name: Test - Async Custom
 ```
 
-### 7. Type Safety :🆕
-```csharp
-try
-{
-    var source = new Source { Id = 1, Name = "Test" };
-    var invalidDestination = source.Map<InvalidDestination>(); // Will throw InvalidOperationException due to type mismatch
-}
-catch (InvalidOperationException ex)
-{
-    Console.WriteLine($"Type Safety Error: {ex.Message}");
-}
-```
+Mappy intentionally avoids:
 
-### 8. Performance Test (Simple & Async) :🆕
-```csharp
-int count = 10000;
-var largeSourceList = Enumerable.Range(1, count).Select(i => new Source { Id = i, Name = "Test" }).ToList();
+* DI containers or global service locators
+* Heavy configuration DSLs
+* Source generators or external runtime dependencies
+* Silent, arbitrary type coercion
 
-// Measuring Simple Mapping Performance
-var stopwatch = System.Diagnostics.Stopwatch.StartNew();
-var largeDestinationList = largeSourceList.MapCollection<Destination>();
-stopwatch.Stop();
-Console.WriteLine($"Simple Collection Mapping Performance: {stopwatch.ElapsedMilliseconds} ms for {count} items");
+## Target Frameworks
 
-// Measuring Asynchronous Mapping Performance
-stopwatch.Restart();
-var largeAsyncDestinationList = await largeSourceList.MapCollectionAsync<Destination>(async d =>
-{
-    d.Name = await Task.FromResult("Async - " + d.Name);
-});
-stopwatch.Stop();
-Console.WriteLine($"Asynchronous Collection Mapping Performance: {stopwatch.ElapsedMilliseconds} ms for {count} items");
-```
-``` shell
-Simple Collection Mapping Performance: 18 ms for 10000 items
-Asynchronous Collection Mapping Performance: 29 ms for 10000 items
-```
----
+* `.NET Standard 2.0` (`netstandard2.0`)
+* `.NET 10` (`net10.0`)
+
 
 ## Performance Considerations
 While Mappy is effective for typical scenarios, it may not be optimized for very large datasets or scenarios with high-frequency mapping needs. The performance of the library could be impacted by reflection-based operations, especially for large collections and complex nested mappings.
@@ -163,6 +247,6 @@ While Mappy is effective for typical scenarios, it may not be optimized for very
 Contributions to Mappy are welcome! If you find any issues or have suggestions for improvements, feel free to create a pull request or report an issue.
 
 ## License
-This project is open source and can be freely modified and distributed.
+This project is open source and under the MIT License, can be freely modified and distributed.
 
 

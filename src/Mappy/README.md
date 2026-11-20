@@ -1,43 +1,44 @@
-# 🍁Mappy 4.0
+# 🍁 Mappy - Object Mapper
 
 ![Static Badge](https://img.shields.io/badge/Mappy-red) 
 ![NuGet Version](https://img.shields.io/nuget/v/Mappy.dotNet)
 ![NuGet Downloads](https://img.shields.io/nuget/dt/Mappy.dotNet)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
-**Mappy** is a lightweight, convention-first object mapper for modern .NET.
+**Mappy** is a lightweight, convention-first object mapper for .NET with zero external runtime dependencies.
 
 It keeps the common case simple:
 
-```csharp
+```c#
 var dto = entity.Map<EntityDto>();
 ```
 
-Mappy 4.0 focuses on predictable mapping, cached mapping plans, compiled property accessors, nested objects, collections, immutable constructor-based types, circular-reference preservation, explicit configuration, converters, and mapping into existing objects.
+Mappy focuses on predictable mapping, cached mapping plans, compiled property accessors, nested objects, collections, positional records and immutable constructor types, circular and shared-reference tracking, explicit converters, and in-place updates.
 
 ## Why Mappy?
 
-- Simple API with no mandatory configuration
-- Cached mapping plans per source/destination pair
-- Compiled property getters and setters
-- Nested object mapping
-- Collection and array mapping
-- Constructor mapping for immutable DTOs and records
-- Circular and shared-reference preservation
-- Explicit property rename and ignore configuration
-- Explicit type converters
-- `MapTo` for updating existing objects
-- Detailed `MappingException` errors
-- Targets .NET 8, 9, and 10
-- No external runtime dependencies
+* Zero mandatory configuration—convention mapping works out of the box
+* Cached mapping plans per source, destination, and member visibility combination
+* Compiled property getters and setters
+* Nested object and collection/array mapping (`List<T>`, `HashSet<T>`, arrays, and compatible collection interfaces)
+* Constructor and positional `record` mapping, including unmatched/extra parameters
+* Circular and shared-reference preservation across graphs and collections
+* Strongly typed and string-based property rename and ignore rules
+* Explicit type converters plus enum and compatible numeric conversions
+* `MapTo` for updating existing instances and `customMapping` / `with` for post-map enrichment
+* Detailed `MappingException` diagnostics (`SourceType`, `DestinationType`, `MemberName`)
+* Targets `netstandard2.0` and `net10.0` with no external runtime dependencies
 
 ## Installation
 
 ```bash
-dotnet add package Mappy.dotNet --version 4.0.0
+dotnet add package Mappy.dotNet --version 4.2.0
+
 ```
 
-## Basic mapping
+## Basic Mapping
+
+Properties with matching names (case-insensitive) and compatible types are mapped automatically:
 
 ```csharp
 var source = new User
@@ -48,15 +49,10 @@ var source = new User
 };
 
 var dto = source.Map<UserDto>();
+
 ```
 
-Properties with matching names and compatible types are mapped automatically.
-
-## Nested mapping
-
-```csharp
-var dto = order.Map<OrderDto>();
-```
+## Nested Mapping
 
 Mappy recursively maps compatible nested objects:
 
@@ -66,90 +62,97 @@ Order
       ↓
 OrderDto
  └── CustomerDto
+
+```
+
+```csharp
+var dto = order.Map<OrderDto>();
+
 ```
 
 ## Collections
 
+Map sequences into `List<T>`, arrays, `HashSet<T>`, or compatible collection interfaces:
+
 ```csharp
 var result = users.MapCollection<UserDto>();
+UserDto[] array = users.MapCollection<UserDto>().ToArray();
+
 ```
 
-Arrays are also supported by the mapping engine:
+In Mappy 4.2, `MapCollection` and `MapCollectionAsync` share a single mapping context across items by default so shared references across elements preserve their mapped identity (`handleCircularReferences: false` disables this if needed).
 
-```csharp
-UserDto[] result = users
-    .MapCollection<UserDto>()
-    .ToArray();
-```
+## Renaming and Ignoring Properties
 
-Supported destination collection shapes include arrays, `List<T>`, `HashSet<T>`, and compatible generic collection interfaces such as `IEnumerable<T>`, `ICollection<T>`, `IList<T>`, and `IReadOnlyCollection<T>`.
-
-## Rename properties
-
-Use strongly typed configuration when source and destination names differ:
+Use strongly typed expressions when property names differ:
 
 ```csharp
 var config = new MappingConfiguration()
     .Map<User, UserDto>(
         source => source.FullName,
-        destination => destination.Name);
+        destination => destination.Name)
+    .Ignore<User, UserDto>(source => source.PasswordHash);
 
 var dto = user.Map<UserDto>(config: config);
+
 ```
 
-The original string-based configuration API is also retained:
+String-based configuration methods are also supported:
 
 ```csharp
 var config = new MappingConfiguration();
+config.AddPropertyMapping(typeof(User), typeof(UserDto), "FullName", "Name");
+config.ExcludeProperty(typeof(User), typeof(UserDto), "PasswordHash");
 
-config.AddPropertyMapping(
-    typeof(User),
-    typeof(UserDto),
-    "FullName",
-    "Name");
 ```
 
-## Ignore properties
+## Explicit Converters and Conversions
+
+Register custom type converters when you need explicit transformation logic:
 
 ```csharp
 var config = new MappingConfiguration()
-    .Ignore<User, UserDto>(x => x.PasswordHash);
-
-var dto = user.Map<UserDto>(config: config);
-```
-
-Or:
-
-```csharp
-config.ExcludeProperty(
-    typeof(User),
-    typeof(UserDto),
-    "PasswordHash");
-```
-
-## Explicit converters
-
-Mappy intentionally avoids broad implicit conversions. Register conversions explicitly:
-
-```csharp
-var config = new MappingConfiguration()
-    .AddConverter<Guid, string>(
-        value => value.ToString("N"));
+    .AddConverter<Guid, string>(value => value.ToString("N"));
 
 var dto = entity.Map<EntityDto>(config: config);
+
 ```
 
-This keeps type behavior predictable.
+Mappy also supports enum-to-string, string-to-enum, enum-to-primitive, `DateOnly` / `TimeOnly`, and compatible numeric conversions while throwing `MappingException` on incompatible types instead of silently guessing.
 
-## Mapping into an existing object
+## Records, Constructors, and Post-Map Enrichment
 
-For update scenarios:
+Mappy matches constructor parameters by name for immutable classes and positional `record` types without requiring a parameterless constructor:
 
 ```csharp
-request.MapTo(entity);
+public sealed record ItemResponse(
+    string Id,
+    string Code,
+    string Name,
+    decimal AvailableQuantity)
+{
+    public ItemResponse() : this(string.Empty, string.Empty, string.Empty, 0m)
+    {
+    }
+}
+
 ```
 
-Optional mapping options are supported:
+When a destination has extra fields not present on the source (such as `AvailableQuantity`), they default cleanly and can be populated via `customMapping` (for mutable/settable properties) or a `with` expression (for `init`-only record properties):
+
+```csharp
+// With customMapping callback
+var dto = item.Map<ItemResponse>(
+    customMapping: r => r.AvailableQuantity = availableQty);
+
+// Or with a 'with' expression on init-only record members
+var immutableDto = item.Map<ItemResponse>() with { AvailableQuantity = availableQty };
+
+```
+
+## Mapping into an Existing Object
+
+Update an existing destination instance with `MapTo`:
 
 ```csharp
 request.MapTo(
@@ -158,178 +161,82 @@ request.MapTo(
     {
         IgnoreNullValues = true
     });
+
 ```
 
-This is useful for PATCH-style updates where null values should leave existing destination values unchanged.
+Setting `IgnoreNullValues = true` leaves existing destination properties untouched when source values are `null`—useful for partial/PATCH updates.
 
-## Immutable types and records
+## Circular References and Private Properties
 
-Mappy 4.0 can map constructor parameters when a destination does not have a parameterless constructor:
-
-```csharp
-public sealed class User
-{
-    public string Name { get; set; } = "";
-    public int Age { get; set; }
-}
-
-public sealed class UserDto(string name, int age)
-{
-    public string Name { get; } = name;
-    public int Age { get; } = age;
-}
-```
-
-Then:
-
-```csharp
-var dto = user.Map<UserDto>();
-```
-
-## Circular references
-
-Mappy 4.0 preserves object identity by default.
-
-For:
+Object identity tracking is enabled by default via `MappingOptions.PreserveReferences`:
 
 ```text
 Parent
  └── Child
       └── Parent
-```
 
-the mapped graph can retain the same relationship:
+```
 
 ```csharp
 var result = source.Map<Destination>();
+bool isSameRoot = ReferenceEquals(result, result.Child.Parent); // true
 
-ReferenceEquals(
-    result,
-    result.Child.Parent);
 ```
 
-Returns `true`.
-
-The legacy boolean API remains available:
-
-```csharp
-var result = source.Map<Destination>(
-    handleCircularReferences: false);
-```
-
-For more control:
+Non-public instance properties are included by default for backward compatibility and can be toggled via `MappingOptions`:
 
 ```csharp
 var options = new MappingOptions
 {
+    IncludeNonPublicProperties = false,
     PreserveReferences = true
 };
+
 ```
 
-## Private properties
+## Asynchronous Custom Mapping
 
-For compatibility with earlier Mappy releases, non-public instance properties remain supported by default.
-
-You can explicitly disable them:
-
-```csharp
-var options = new MappingOptions
-{
-    IncludeNonPublicProperties = false
-};
-
-var dto = source.Map<UserDto>();
-```
-
-## Asynchronous custom mapping
-
-Normal object mapping is synchronous and does not introduce an unnecessary async pipeline.
-
-Async is available when your custom mapping itself requires asynchronous work:
+Core mapping runs synchronously. Use `MapAsync` or `MapCollectionAsync` when your post-mapping enrichment requires asynchronous calls:
 
 ```csharp
 var dto = await source.MapAsync<UserDto>(async destination =>
 {
-    destination.DisplayName =
-        await GetDisplayNameAsync(source.Id);
+    destination.DisplayName = await GetDisplayNameAsync(source.Id);
 });
-```
 
-For collections:
-
-```csharp
-var result = await users.MapCollectionAsync<UserDto>(
-    async destination =>
-    {
-        destination.DisplayName =
-            await GetDisplayNameAsync(destination.Id);
-    });
-```
-
-## Type safety
-
-Mappy maps directly assignable or explicitly supported values.
-
-For incompatible types:
-
-```csharp
-public class Source
+var list = await users.MapCollectionAsync<UserDto>(async destination =>
 {
-    public int Id { get; set; }
-}
+    destination.DisplayName = await GetDisplayNameAsync(destination.Id);
+});
 
-public class Destination
-{
-    public DateTime Id { get; set; }
-}
 ```
 
-mapping fails with a `MappingException` instead of silently performing an unexpected conversion.
+## Performance and Design Goals
 
-For intentional conversions, register a converter.
-
-## Performance
-
-Mappy 4.0 separates mapping-plan construction from mapping execution.
-
-The first mapping for a source/destination pair builds and caches metadata:
+Mappy builds and caches mapping plans with compiled expression getters and setters on first use so repeated mappings avoid per-item reflection overhead:
 
 ```text
-Source + Destination
-        ↓
-Mapping plan
-        ↓
-Compiled property accessors
-        ↓
-Cached
-        ↓
-Fast repeated mapping
+Source + Destination + Visibility
+               ↓
+         MappingPlan
+               ↓
+   Compiled Getters / Setters
+               ↓
+     Cached for Reuse
+
 ```
 
-Property getters and setters are compiled once rather than using `PropertyInfo.GetValue` and `SetValue` for every mapped property.
+Mappy intentionally avoids:
 
-For trustworthy performance comparisons, the repository includes a dedicated benchmark project. Benchmarks should be run in Release mode on the target runtime and hardware rather than relying on a single stopwatch measurement.
+* DI containers or global service locators
+* Heavy configuration DSLs
+* Source generators or external runtime dependencies
+* Silent, arbitrary type coercion
 
-## Design goals
+## Target Frameworks
 
-Mappy deliberately does not require:
-
-- a dependency injection container
-- a global service provider
-- a large configuration system
-- runtime source-generation tooling
-- implicit conversion of arbitrary types
-- external runtime packages
-
-The goal is a small API with strong internals.
-
-## Target frameworks
-
-Mappy targets:
-
-- .NET 8
-- .NET 9
-- .NET 10
+* `.NET Standard 2.0` (`netstandard2.0`)
+* `.NET 10` (`net10.0`)
 
 ## License
 

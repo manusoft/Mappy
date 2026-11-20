@@ -17,21 +17,28 @@ internal sealed class MemberAccessor
     public Action<object, object?>? Setter { get; }
     public bool CanWrite => Setter is not null;
 
-    public static MemberAccessor Create(PropertyInfo property)
+    public static MemberAccessor Create(PropertyInfo property, bool allowNonPublicSetter = true)
     {
-        var instance = Expression.Parameter(typeof(object), "instance");
-        var castInstance = Expression.Convert(instance, property.DeclaringType!);
-        var value = Expression.Property(castInstance, property);
+        var instanceParam = Expression.Parameter(typeof(object), "instance");
+        var targetType = property.DeclaringType!;
+        var typedInstance = Expression.Convert(instanceParam, targetType);
+        var propertyExpr = Expression.Property(typedInstance, property);
+
         var getter = Expression.Lambda<Func<object, object?>>(
-            Expression.Convert(value, typeof(object)), instance).Compile();
+            Expression.Convert(propertyExpr, typeof(object)),
+            instanceParam).Compile();
 
         Action<object, object?>? setter = null;
-        if (property.SetMethod is not null)
+        var setMethod = property.SetMethod;
+        if (setMethod is not null && (allowNonPublicSetter || setMethod.IsPublic))
         {
-            var valueParameter = Expression.Parameter(typeof(object), "value");
-            var convertedValue = Expression.Convert(valueParameter, property.PropertyType);
+            var valueParam = Expression.Parameter(typeof(object), "value");
+            var convertedValue = Expression.Convert(valueParam, property.PropertyType);
+            var callSetter = Expression.Call(typedInstance, setMethod, convertedValue);
             setter = Expression.Lambda<Action<object, object?>>(
-                Expression.Assign(value, convertedValue), instance, valueParameter).Compile();
+                callSetter,
+                instanceParam,
+                valueParam).Compile();
         }
 
         return new MemberAccessor(property, getter, setter);

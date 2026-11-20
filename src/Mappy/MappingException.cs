@@ -29,8 +29,11 @@ public sealed class MappingException : InvalidOperationException
     /// <param name="destinationType"></param>
     /// <param name="memberName"></param>
     /// <param name="innerException"></param>
-    public MappingException(string message, Type? sourceType = null, Type? destinationType = null,
-        string? memberName = null, Exception? innerException = null)
+    public MappingException(string message,
+                            Type? sourceType = null,
+                            Type? destinationType = null,
+                            string? memberName = null,
+                            Exception? innerException = null)
         : base(message, innerException)
     {
         SourceType = sourceType;

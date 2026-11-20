@@ -19,13 +19,13 @@ internal sealed class MappingContext
 
     public void Track(object source, object destination)
     {
-        if (Options.PreserveReferences)
+        if (Options.PreserveReferences && !source.GetType().IsValueType)
             _references[source] = destination;
     }
 
     public void Untrack(object source)
     {
-        if (Options.PreserveReferences)
+        if (Options.PreserveReferences && !source.GetType().IsValueType)
             _references.Remove(source);
     }
 }
