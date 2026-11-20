@@ -18,21 +18,19 @@ internal sealed class MappingPlan
         if (includeNonPublic)
             flags |= BindingFlags.NonPublic;
 
-        var sourceMembers = sourceType
+        _sourceMembers = sourceType
             .GetProperties(flags)
             .Where(p => p.GetIndexParameters().Length == 0 && p.GetMethod is not null)
-            .Select(MemberAccessor.Create)
+            .Select(p => MemberAccessor.Create(p, includeNonPublic))
             .ToDictionary(x => x.Property.Name, StringComparer.OrdinalIgnoreCase);
 
-        var destinationMembers = destinationType
+        _destinationMembers = destinationType
             .GetProperties(flags)
             .Where(p => p.GetIndexParameters().Length == 0 && p.SetMethod is not null)
-            .Select(MemberAccessor.Create)
+            .Select(p => MemberAccessor.Create(p, includeNonPublic))
             .ToDictionary(x => x.Property.Name, StringComparer.OrdinalIgnoreCase);
 
-        _sourceMembers = sourceMembers;
-        _destinationMembers = destinationMembers;
-        _constructor = ConstructorPlan.TryCreate(sourceMembers, destinationType);
+        _constructor = ConstructorPlan.TryCreate(_sourceMembers, destinationType);
     }
 
     public Type SourceType { get; }
@@ -41,7 +39,8 @@ internal sealed class MappingPlan
     private static readonly ConcurrentDictionary<(Type, Type, bool), MappingPlan> Cache = new();
 
     public static MappingPlan Get(Type sourceType, Type destinationType, bool includeNonPublic) =>
-        Cache.GetOrAdd((sourceType, destinationType, includeNonPublic),
+        Cache.GetOrAdd(
+            (sourceType, destinationType, includeNonPublic),
             static key => new MappingPlan(key.Item1, key.Item2, key.Item3));
 
     public object Create(object source, MappingContext context, MappingConfiguration? config)
@@ -53,7 +52,6 @@ internal sealed class MappingPlan
                 : CreateDefaultDestination();
 
             context.Track(source, destination);
-
             MapMembers(source, destination, context, config);
             return destination;
         }
@@ -65,7 +63,9 @@ internal sealed class MappingPlan
         {
             throw new MappingException(
                 $"Failed to map {SourceType.FullName} to {DestinationType.FullName}.",
-                SourceType, DestinationType, innerException: ex);
+                SourceType,
+                DestinationType,
+                innerException: ex);
         }
     }
 
@@ -77,43 +77,29 @@ internal sealed class MappingPlan
 
     private void MapMembers(object source, object destination, MappingContext context, MappingConfiguration? config)
     {
-        var mappingKey = (SourceType, DestinationType);
-
-        Dictionary<string, string>? mappings = null;
-
-        if (config is not null)
-        {
-            config.PropertyMappings.TryGetValue(mappingKey, out mappings);
-        }
+        ConcurrentDictionary<string, string>? mappings = null;
+        config?.PropertyMappings.TryGetValue((SourceType, DestinationType), out mappings);
 
         foreach (var sourceMember in _sourceMembers.Values)
         {
             var sourceName = sourceMember.Property.Name;
+            var destinationName = mappings is not null && mappings.TryGetValue(sourceName, out var mappedDest)
+                ? mappedDest
+                : sourceName;
 
-            if (config?.ExcludedProperties.Contains(
-                    (SourceType, DestinationType, sourceName)) == true)
+            if (config?.IsPropertyExcluded(SourceType, DestinationType, sourceName) == true ||
+                config?.IsPropertyExcluded(SourceType, DestinationType, destinationName) == true)
             {
                 continue;
             }
 
-            var destinationName =
-                mappings?.GetValueOrDefault(sourceName) ?? sourceName;
-
-            if (!_destinationMembers.TryGetValue(
-                    destinationName,
-                    out var destinationMember))
-            {
+            if (!_destinationMembers.TryGetValue(destinationName, out var destinationMember))
                 continue;
-            }
 
-            if (_constructor?.ParameterNames.Contains(
-                    destinationMember.Property.Name) == true)
-            {
+            if (_constructor?.ParameterNames.Contains(destinationMember.Property.Name) == true)
                 continue;
-            }
 
             object? sourceValue;
-
             try
             {
                 sourceValue = sourceMember.Getter(source);
@@ -133,8 +119,7 @@ internal sealed class MappingPlan
             {
                 if (!context.Options.IgnoreNullValues &&
                     destinationMember.CanWrite &&
-                    MappingEngine.IsNullableType(
-                        destinationMember.Property.PropertyType))
+                    MappingEngine.IsNullableType(destinationMember.Property.PropertyType))
                 {
                     destinationMember.Setter!(destination, null);
                 }
@@ -143,9 +128,7 @@ internal sealed class MappingPlan
             }
 
             if (!destinationMember.CanWrite)
-            {
                 continue;
-            }
 
             try
             {
@@ -182,7 +165,9 @@ internal sealed class MappingPlan
             {
                 throw new MappingException(
                     $"Destination type '{DestinationType.FullName}' could not be instantiated.",
-                    SourceType, DestinationType, innerException: ex);
+                    SourceType,
+                    DestinationType,
+                    innerException: ex);
             }
         }
 
@@ -191,14 +176,17 @@ internal sealed class MappingPlan
             return Activator.CreateInstance(DestinationType, nonPublic: true)
                 ?? throw new MappingException(
                     $"Destination type '{DestinationType.FullName}' could not be instantiated.",
-                    SourceType, DestinationType);
+                    SourceType,
+                    DestinationType);
         }
         catch (MissingMethodException ex)
         {
             throw new MappingException(
                 $"Destination type '{DestinationType.FullName}' has no parameterless constructor. " +
                 "Use a mappable constructor or provide a custom mapping.",
-                SourceType, DestinationType, innerException: ex);
+                SourceType,
+                DestinationType,
+                innerException: ex);
         }
     }
 }

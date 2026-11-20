@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Concurrent;
+using System.Reflection;
 
 namespace Mappy;
 
@@ -12,10 +13,25 @@ internal static class MappingEngine
         MappingConfiguration? config,
         MappingOptions? options)
     {
-        ArgumentNullException.ThrowIfNull(source);
+        if (source is null) throw new ArgumentNullException(nameof(source));
 
         var context = new MappingContext(options ?? new MappingOptions());
-        return (TDestination)MapValue(source, typeof(TDestination), context, config)!;
+        var result = MapValue(source, typeof(TDestination), context, config);
+
+        if (result is null)
+        {
+            if (typeof(TDestination).IsValueType && Nullable.GetUnderlyingType(typeof(TDestination)) is null)
+            {
+                throw new MappingException(
+                    $"Cannot map null to non-nullable destination type '{typeof(TDestination).FullName}'.",
+                    source.GetType(),
+                    typeof(TDestination));
+            }
+
+            return default!;
+        }
+
+        return (TDestination)result;
     }
 
     public static object? MapValue(
@@ -34,21 +50,28 @@ internal static class MappingEngine
                 destinationType: destinationType);
         }
 
-        if (config?.Converters.TryGetValue((source.GetType(), destinationType), out var converter) == true)
+        if (context.Options.AllowConversions &&
+            config?.Converters.TryGetValue((source.GetType(), destinationType), out var converter) == true)
         {
             try
             {
                 return converter(source);
             }
+            catch (MappingException)
+            {
+                throw;
+            }
             catch (Exception ex)
             {
                 throw new MappingException(
                     $"Custom converter failed from {source.GetType().FullName} to {destinationType.FullName}.",
-                    source.GetType(), destinationType, innerException: ex);
+                    source.GetType(),
+                    destinationType,
+                    innerException: ex);
             }
         }
 
-        if (TryConvert(source, destinationType, out var converted))
+        if (context.Options.AllowConversions && TryConvert(source, destinationType, out var converted))
             return converted;
 
         if (context.Options.PreserveReferences && !source.GetType().IsValueType &&
@@ -63,13 +86,10 @@ internal static class MappingEngine
             throw new MappingException(
                 $"Cannot map '{source.GetType().FullName}' to '{destinationType.FullName}'. " +
                 "The types are not directly assignable and no converter is registered.",
-                source.GetType(), destinationType);
+                source.GetType(),
+                destinationType);
         }
 
-        // Complex objects must always go through a mapping plan. In particular,
-        // do not return an assignable complex source instance directly: doing so
-        // would make nested mappings reuse the source object instead of creating
-        // a destination object.
         var plan = MappingPlan.Get(
             source.GetType(),
             destinationType,
@@ -95,21 +115,30 @@ internal static class MappingEngine
         if (sourceUnderlying == destinationUnderlying)
             return true;
 
-        // These conversions are supported by TryConvert below.
-        if (sourceUnderlying.IsEnum && destinationUnderlying == typeof(string))
+        if (sourceUnderlying.IsEnum && (destinationUnderlying == typeof(string) || destinationUnderlying.IsPrimitive))
             return true;
 
-        if (sourceUnderlying == typeof(string) && destinationUnderlying.IsEnum)
+        if (destinationUnderlying.IsEnum && (sourceUnderlying == typeof(string) || sourceUnderlying.IsPrimitive))
             return true;
 
-        if (sourceUnderlying.IsEnum && destinationUnderlying.IsPrimitive)
-            return true;
-
-        if (sourceUnderlying.IsPrimitive && destinationUnderlying.IsEnum)
+        if (IsNumericType(sourceUnderlying) && IsNumericType(destinationUnderlying))
             return true;
 
         return false;
     }
+
+    private static bool IsNumericType(Type type) =>
+        type == typeof(byte) ||
+        type == typeof(sbyte) ||
+        type == typeof(short) ||
+        type == typeof(ushort) ||
+        type == typeof(int) ||
+        type == typeof(uint) ||
+        type == typeof(long) ||
+        type == typeof(ulong) ||
+        type == typeof(float) ||
+        type == typeof(double) ||
+        type == typeof(decimal);
 
     private static object MapCollection(
         IEnumerable source,
@@ -140,11 +169,11 @@ internal static class MappingEngine
         if (destinationType.IsGenericType &&
             destinationType.GetGenericTypeDefinition() == typeof(HashSet<>))
         {
-            var set = Activator.CreateInstance(destinationType);
-            var add = destinationType.GetMethod("Add", new[] { elementType })!;
+            var set = Activator.CreateInstance(destinationType)!;
+            var add = destinationType.GetMethod("Add", [elementType])!;
             foreach (var item in list)
-                add.Invoke(set, new[] { item });
-            return set!;
+                add.Invoke(set, [item]);
+            return set;
         }
 
         if (destinationType.IsAssignableFrom(listType))
@@ -156,9 +185,9 @@ internal static class MappingEngine
             if (destinationType.IsAssignableFrom(setType))
             {
                 var set = Activator.CreateInstance(setType)!;
-                var add = setType.GetMethod("Add", new[] { elementType })!;
+                var add = setType.GetMethod("Add", [elementType])!;
                 foreach (var item in list)
-                    add.Invoke(set, new[] { item });
+                    add.Invoke(set, [item]);
                 return set;
             }
         }
@@ -183,7 +212,7 @@ internal static class MappingEngine
             return elementType is not null;
         }
 
-        if (type.IsGenericType && typeof(IEnumerable).IsAssignableFrom(type))
+        if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(IEnumerable<>))
         {
             elementType = type.GetGenericArguments()[0];
             return true;
@@ -200,10 +229,9 @@ internal static class MappingEngine
     private static bool TryConvert(object source, Type destinationType, out object? result)
     {
         var sourceType = source.GetType();
-        var nullableDestination = Nullable.GetUnderlyingType(destinationType);
-        var targetType = nullableDestination ?? destinationType;
+        var targetType = Nullable.GetUnderlyingType(destinationType) ?? destinationType;
 
-        if (IsSimpleType(destinationType) && destinationType.IsInstanceOfType(source))
+        if (destinationType.IsInstanceOfType(source) && IsSimpleType(destinationType))
         {
             result = source;
             return true;
@@ -221,13 +249,11 @@ internal static class MappingEngine
             return true;
         }
 
-        if (targetType.IsEnum && source is string text)
+        if (targetType.IsEnum && source is string text &&
+            TryParseEnum(targetType, text, ignoreCase: true, out var parsed))
         {
-            if (Enum.TryParse(targetType, text, ignoreCase: true, out var parsed))
-            {
-                result = parsed;
-                return true;
-            }
+            result = parsed;
+            return true;
         }
 
         if (targetType.IsEnum && sourceType.IsPrimitive)
@@ -239,7 +265,7 @@ internal static class MappingEngine
             }
             catch
             {
-                // Continue with normal mapping failure handling.
+                // Fall through
             }
         }
 
@@ -252,7 +278,20 @@ internal static class MappingEngine
             }
             catch
             {
-                // Continue with normal mapping failure handling.
+                // Fall through
+            }
+        }
+
+        if (IsNumericType(sourceType) && IsNumericType(targetType))
+        {
+            try
+            {
+                result = Convert.ChangeType(source, targetType);
+                return true;
+            }
+            catch
+            {
+                // Fall through
             }
         }
 
@@ -271,11 +310,67 @@ internal static class MappingEngine
                    underlying == typeof(Guid) ||
                    underlying == typeof(DateTime) ||
                    underlying == typeof(DateTimeOffset) ||
-                   underlying == typeof(TimeSpan) ||
-                   underlying == typeof(DateOnly) ||
-                   underlying == typeof(TimeOnly);
+                   underlying == typeof(TimeSpan)
+#if NET6_0_OR_GREATER
+                   || underlying == typeof(DateOnly) 
+                   || underlying == typeof(TimeOnly)
+#endif
+                   ;
         });
 
     internal static bool IsNullableType(Type type) =>
         !type.IsValueType || Nullable.GetUnderlyingType(type) is not null;
+
+    private static readonly ConcurrentDictionary<Type, Func<string, bool, (bool Success, object? Value)>> EnumParsers = new();
+
+    private static bool TryParseEnum(Type enumType, string text, bool ignoreCase, out object? result)
+    {
+        var parser = EnumParsers.GetOrAdd(enumType, static t =>
+        {
+            var method = typeof(Enum)
+                .GetMethods(BindingFlags.Public | BindingFlags.Static)
+                .First(m => m.Name == nameof(Enum.TryParse) &&
+                             m.IsGenericMethodDefinition &&
+                             m.GetParameters().Length == 3 &&
+                             m.GetParameters()[1].ParameterType == typeof(bool));
+
+            var genericMethod = method.MakeGenericMethod(t);
+
+            return (input, ignore) =>
+            {
+                object?[] args = [input, ignore, null];
+                var ok = (bool)genericMethod.Invoke(null, args)!;
+                return (ok, args[2]);
+            };
+        });
+
+        var outcome = parser(text, ignoreCase);
+        result = outcome.Value;
+        return outcome.Success;
+    }
+
+    internal static TDestination MapWithContext<TDestination>(
+        object source,
+        MappingContext context,
+        MappingConfiguration? config)
+    {
+        if(source is null) throw new ArgumentNullException(nameof(source));
+
+        var result = MapValue(source, typeof(TDestination), context, config);
+
+        if (result is null)
+        {
+            if (typeof(TDestination).IsValueType && Nullable.GetUnderlyingType(typeof(TDestination)) is null)
+            {
+                throw new MappingException(
+                    $"Cannot map null to non-nullable destination type '{typeof(TDestination).FullName}'.",
+                    source.GetType(),
+                    typeof(TDestination));
+            }
+
+            return default!;
+        }
+
+        return (TDestination)result;
+    }
 }

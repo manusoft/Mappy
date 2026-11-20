@@ -1,3 +1,5 @@
+using System.Runtime.CompilerServices;
+
 namespace Mappy;
 
 internal sealed class MappingContext
@@ -17,13 +19,24 @@ internal sealed class MappingContext
 
     public void Track(object source, object destination)
     {
-        if (Options.PreserveReferences)
+        if (Options.PreserveReferences && !source.GetType().IsValueType)
             _references[source] = destination;
     }
 
     public void Untrack(object source)
     {
-        if (Options.PreserveReferences)
+        if (Options.PreserveReferences && !source.GetType().IsValueType)
             _references.Remove(source);
     }
+}
+
+internal sealed class ReferenceEqualityComparer : IEqualityComparer<object?>
+{
+    public static ReferenceEqualityComparer Instance { get; } = new();
+
+    private ReferenceEqualityComparer() { }
+
+    bool IEqualityComparer<object?>.Equals(object? x, object? y) => ReferenceEquals(x, y);
+
+    int IEqualityComparer<object?>.GetHashCode(object? obj) => obj is null ? 0 : RuntimeHelpers.GetHashCode(obj);
 }

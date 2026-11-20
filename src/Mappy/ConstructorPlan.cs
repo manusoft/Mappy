@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Reflection;
 
 namespace Mappy;
@@ -5,76 +6,65 @@ namespace Mappy;
 internal sealed class ConstructorPlan
 {
     private readonly ConstructorInfo _constructor;
-    private readonly IReadOnlyList<(ParameterInfo Parameter, MemberAccessor Source)> _parameters;
+    private readonly IReadOnlyList<(ParameterInfo Parameter, MemberAccessor? Source)> _parameters;
 
     private ConstructorPlan(
         ConstructorInfo constructor,
-        IReadOnlyList<(ParameterInfo Parameter, MemberAccessor Source)> parameters)
+        IReadOnlyList<(ParameterInfo Parameter, MemberAccessor? Source)> parameters)
     {
         _constructor = constructor;
         _parameters = parameters;
     }
 
     public HashSet<string> ParameterNames =>
-        _parameters.Select(x => x.Parameter.Name!)
-            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+    new HashSet<string>(
+        _parameters
+            .Select(x => x.Parameter.Name!)
+            .Where(name => !string.IsNullOrEmpty(name)),
+        StringComparer.OrdinalIgnoreCase);
 
     public static ConstructorPlan? TryCreate(
         IReadOnlyDictionary<string, MemberAccessor> sourceMembers,
         Type destinationType)
     {
-        if (destinationType.GetConstructor(
-                BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
-                binder: null,
-                Type.EmptyTypes,
-                modifiers: null) is not null)
-        {
-            return null;
-        }
-
+        // Prefer parameterless constructor when publicly available and type is not a record-style DTO
+        // that requires constructor-injected members.
         var constructors = destinationType
             .GetConstructors(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
+            .Where(c => c.GetParameters().Length > 0)
             .OrderByDescending(c => c.GetParameters().Length);
 
         foreach (var constructor in constructors)
         {
             var parameters = constructor.GetParameters();
-            if (parameters.Length == 0)
-                continue;
-
-            var matches = new List<(ParameterInfo, MemberAccessor)>(parameters.Length);
-            var valid = true;
+            var entries = new List<(ParameterInfo, MemberAccessor?)>(parameters.Length);
+            var matchedCount = 0;
+            var compatible = true;
 
             foreach (var parameter in parameters)
             {
-                if (parameter.Name is null ||
-                    !sourceMembers.TryGetValue(parameter.Name, out var source))
+                if (parameter.Name is not null &&
+                    sourceMembers.TryGetValue(parameter.Name, out var source))
                 {
-                    if (parameter.IsOptional || parameter.HasDefaultValue)
-                        continue;
+                    if (!MappingEngine.CanMapType(source.Property.PropertyType, parameter.ParameterType))
+                    {
+                        compatible = false;
+                        break;
+                    }
 
-                    valid = false;
-                    break;
+                    entries.Add((parameter, source));
+                    matchedCount++;
                 }
-
-                if (!MappingEngine.CanMapType(
-                        source.Property.PropertyType,
-                        parameter.ParameterType))
+                else
                 {
-                    valid = false;
-                    break;
+                    // Allow unmatched parameters so extra/computed fields (like AvailableQuantity)
+                    // can default and be enriched via `with` or `customMapping`.
+                    entries.Add((parameter, null));
                 }
-
-                matches.Add((parameter, source));
             }
 
-            if (valid && matches.Count == parameters.Length)
-                return new ConstructorPlan(constructor, matches);
-
-            // Optional parameters may be omitted. A constructor is still valid
-            // when every required parameter has a matching source member.
-            if (valid)
-                return new ConstructorPlan(constructor, matches);
+            if (compatible && matchedCount > 0)
+                return new ConstructorPlan(constructor, entries);
         }
 
         return null;
@@ -84,73 +74,76 @@ internal sealed class ConstructorPlan
     {
         var parameters = _constructor.GetParameters();
         var args = new object?[parameters.Length];
-        var mappedParameters = _parameters.ToDictionary(
-            x => x.Parameter.Name!,
-            x => x.Source,
-            StringComparer.OrdinalIgnoreCase);
 
-        for (var i = 0; i < parameters.Length; i++)
+        for (var i = 0; i < _parameters.Count; i++)
         {
-            var parameter = parameters[i];
+            var (parameter, sourceMember) = _parameters[i];
 
-            if (!mappedParameters.TryGetValue(parameter.Name!, out var sourceMember))
+            if (sourceMember is null)
             {
                 args[i] = parameter.HasDefaultValue
-                    ? parameter.DefaultValue
+                    ? EnsureValidValue(parameter.DefaultValue, parameter.ParameterType)
                     : GetDefault(parameter.ParameterType);
                 continue;
             }
 
-            object? value;
+            object? rawValue;
             try
             {
-                value = sourceMember.Getter(source);
+                rawValue = sourceMember.Getter(source);
             }
             catch (Exception ex)
             {
                 throw new MappingException(
                     $"Unable to read constructor parameter '{parameter.Name}' while mapping " +
                     $"{source.GetType().FullName} to {_constructor.DeclaringType?.FullName}.",
-                    source.GetType(), _constructor.DeclaringType, parameter.Name, ex);
+                    source.GetType(),
+                    _constructor.DeclaringType,
+                    parameter.Name,
+                    ex);
             }
 
-            if (value is null)
+            if (rawValue is null)
             {
                 if (!MappingEngine.IsNullableType(parameter.ParameterType))
                 {
                     throw new MappingException(
                         $"Source member '{sourceMember.Property.Name}' is null but constructor parameter " +
                         $"'{parameter.Name}' of '{_constructor.DeclaringType?.FullName}' is non-nullable.",
-                        source.GetType(), _constructor.DeclaringType, parameter.Name);
+                        source.GetType(),
+                        _constructor.DeclaringType,
+                        parameter.Name);
                 }
 
                 args[i] = null;
                 continue;
             }
 
-            args[i] = MappingEngine.MapValue(value, parameter.ParameterType, context, config);
+            var mapped = MappingEngine.MapValue(rawValue, parameter.ParameterType, context, config);
+            args[i] = EnsureValidValue(mapped, parameter.ParameterType);
         }
 
         try
         {
             return _constructor.Invoke(args);
         }
-        catch (TargetInvocationException ex)
-        {
-            throw new MappingException(
-                $"Constructor mapping failed for '{_constructor.DeclaringType?.FullName}'.",
-                sourceType: source.GetType(),
-                destinationType: _constructor.DeclaringType,
-                innerException: ex.InnerException ?? ex);
-        }
         catch (Exception ex)
         {
+            var inner = ex is TargetInvocationException tie ? tie.InnerException ?? tie : ex;
             throw new MappingException(
                 $"Constructor mapping failed for '{_constructor.DeclaringType?.FullName}'.",
-                sourceType: source.GetType(),
-                destinationType: _constructor.DeclaringType,
-                innerException: ex);
+                source.GetType(),
+                _constructor.DeclaringType,
+                innerException: inner);
         }
+    }
+
+    private static object? EnsureValidValue(object? value, Type targetType)
+    {
+        if (value is null && targetType.IsValueType && Nullable.GetUnderlyingType(targetType) is null)
+            return Activator.CreateInstance(targetType);
+
+        return value;
     }
 
     private static object? GetDefault(Type type) =>

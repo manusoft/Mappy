@@ -22,7 +22,7 @@ public static class ObjectMapper
         MappingConfiguration? config = null,
         bool handleCircularReferences = true)
     {
-        ArgumentNullException.ThrowIfNull(source);
+        if (source is null) throw new ArgumentNullException(nameof(source));
 
         var options = new MappingOptions
         {
@@ -66,12 +66,20 @@ public static class ObjectMapper
     /// <typeparam name="TDestination"></typeparam>
     /// <param name="source"></param>
     /// <param name="config"></param>
+    /// <param name="handleCircularReferences"></param>
     /// <returns></returns>
     public static List<TDestination> MapCollection<TDestination>(
         this IEnumerable source,
-        MappingConfiguration? config = null)
+        MappingConfiguration? config = null,
+        bool handleCircularReferences = true)
     {
-        ArgumentNullException.ThrowIfNull(source);
+        if (source is null)
+            throw new ArgumentNullException(nameof(source));
+
+        var context = new MappingContext(new MappingOptions
+        {
+            PreserveReferences = handleCircularReferences
+        });
 
         var result = source is ICollection collection
             ? new List<TDestination>(collection.Count)
@@ -85,7 +93,7 @@ public static class ObjectMapper
                 continue;
             }
 
-            result.Add(item.Map<TDestination>(config: config));
+            result.Add(MappingEngine.MapWithContext<TDestination>(item, context, config));
         }
 
         return result;
@@ -98,13 +106,21 @@ public static class ObjectMapper
     /// <param name="source"></param>
     /// <param name="customMapping"></param>
     /// <param name="config"></param>
+    /// <param name="handleCircularReferences"></param>
     /// <returns></returns>
     public static async Task<List<TDestination>> MapCollectionAsync<TDestination>(
         this IEnumerable source,
         Func<TDestination, Task>? customMapping = null,
-        MappingConfiguration? config = null)
+        MappingConfiguration? config = null,
+        bool handleCircularReferences = true)
     {
-        ArgumentNullException.ThrowIfNull(source);
+        if (source is null)
+            throw new ArgumentNullException(nameof(source));
+
+        var context = new MappingContext(new MappingOptions
+        {
+            PreserveReferences = handleCircularReferences
+        });
 
         var result = source is ICollection collection
             ? new List<TDestination>(collection.Count)
@@ -118,8 +134,10 @@ public static class ObjectMapper
                 continue;
             }
 
-            var destination = await item.MapAsync(customMapping, config)
-                .ConfigureAwait(false);
+            var destination = MappingEngine.MapWithContext<TDestination>(item, context, config);
+            if (customMapping is not null)
+                await customMapping(destination).ConfigureAwait(false);
+
             result.Add(destination);
         }
 
@@ -137,8 +155,8 @@ public static class ObjectMapper
         where TSource : notnull
         where TDestination : notnull
     {
-        ArgumentNullException.ThrowIfNull(source);
-        ArgumentNullException.ThrowIfNull(destination);
+        if (source is null) throw new ArgumentNullException(nameof(source));
+        if (destination is null) throw new ArgumentNullException(nameof(destination));
 
         var context = new MappingContext(options ?? new MappingOptions());
         var plan = MappingPlan.Get(
