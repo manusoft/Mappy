@@ -98,30 +98,41 @@ internal static class MappingEngine
         return plan.Create(source, context, config);
     }
 
-    public static bool CanMapType(Type sourceType, Type destinationType)
+    internal static bool CanMapType(Type sourceType, Type destinationType, MappingConfiguration? config = null)
     {
-        if (destinationType.IsAssignableFrom(sourceType))
+        if (sourceType is null || destinationType is null)
+            return false;
+
+        var nonNullableSource = Nullable.GetUnderlyingType(sourceType) ?? sourceType;
+        var nonNullableDest = Nullable.GetUnderlyingType(destinationType) ?? destinationType;
+
+        // Direct or polymorphic assignability
+        if (nonNullableDest.IsAssignableFrom(nonNullableSource))
             return true;
 
-        var sourceUnderlying = Nullable.GetUnderlyingType(sourceType) ?? sourceType;
-        var destinationUnderlying = Nullable.GetUnderlyingType(destinationType) ?? destinationType;
-
-        if (destinationUnderlying.IsAssignableFrom(sourceUnderlying))
+        // Registered custom converter
+        if (config is not null && config.HasConverter(nonNullableSource, nonNullableDest))
             return true;
 
-        if (!IsSimpleType(sourceUnderlying) || !IsSimpleType(destinationUnderlying))
-            return !IsSimpleType(sourceUnderlying) && !IsSimpleType(destinationUnderlying);
+        // Collection-to-collection mapping (e.g., IReadOnlyCollection<GrnItem> -> List<GrnItemResponse> or GrnItemResponse[])
+        if (TryGetCollectionElementType(nonNullableSource, out var sourceElementType) &&
+            TryGetCollectionElementType(nonNullableDest, out var destElementType))
+        {
+            return CanMapType(sourceElementType, destElementType, config);
+        }
 
-        if (sourceUnderlying == destinationUnderlying)
+        // Enums and compatible numeric/primitive conversions
+        if (nonNullableDest.IsEnum && (nonNullableSource == typeof(string) || IsNumericType(nonNullableSource)))
             return true;
 
-        if (sourceUnderlying.IsEnum && (destinationUnderlying == typeof(string) || destinationUnderlying.IsPrimitive))
+        if (nonNullableSource.IsEnum && (nonNullableDest == typeof(string) || IsNumericType(nonNullableDest)))
             return true;
 
-        if (destinationUnderlying.IsEnum && (sourceUnderlying == typeof(string) || sourceUnderlying.IsPrimitive))
+        if (IsNumericType(nonNullableSource) && IsNumericType(nonNullableDest))
             return true;
 
-        if (IsNumericType(sourceUnderlying) && IsNumericType(destinationUnderlying))
+        // Complex object or record/constructor type with a valid plan
+        if (!nonNullableDest.IsPrimitive && nonNullableDest != typeof(string) && nonNullableDest != typeof(decimal))
             return true;
 
         return false;
@@ -198,32 +209,48 @@ internal static class MappingEngine
             destinationType: destinationType);
     }
 
-    private static bool TryGetCollectionElementType(Type type, out Type? elementType)
+    private static bool TryGetCollectionElementType(Type collectionType, out Type elementType)
     {
-        if (type == typeof(string))
+        if (collectionType == typeof(string))
         {
-            elementType = null;
+            elementType = null!;
             return false;
         }
 
-        if (type.IsArray)
+        if (collectionType.IsArray)
         {
-            elementType = type.GetElementType();
+            elementType = collectionType.GetElementType()!;
             return elementType is not null;
         }
 
-        if (type.IsGenericType && type.GetGenericTypeDefinition() == typeof(IEnumerable<>))
+        if (collectionType.IsGenericType)
         {
-            elementType = type.GetGenericArguments()[0];
+            var genericDef = collectionType.GetGenericTypeDefinition();
+            if (genericDef == typeof(IEnumerable<>) ||
+                genericDef == typeof(ICollection<>) ||
+                genericDef == typeof(IList<>) ||
+                genericDef == typeof(IReadOnlyCollection<>) ||
+                genericDef == typeof(IReadOnlyList<>) ||
+                genericDef == typeof(List<>) ||
+                genericDef == typeof(HashSet<>))
+            {
+                elementType = collectionType.GetGenericArguments()[0];
+                return true;
+            }
+        }
+
+        var enumerableInterface = collectionType
+            .GetInterfaces()
+            .FirstOrDefault(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IEnumerable<>));
+
+        if (enumerableInterface is not null)
+        {
+            elementType = enumerableInterface.GetGenericArguments()[0];
             return true;
         }
 
-        var enumerable = type.GetInterfaces()
-            .FirstOrDefault(i => i.IsGenericType &&
-                                 i.GetGenericTypeDefinition() == typeof(IEnumerable<>));
-
-        elementType = enumerable?.GetGenericArguments()[0];
-        return elementType is not null;
+        elementType = null!;
+        return false;
     }
 
     private static bool TryConvert(object source, Type destinationType, out object? result)
