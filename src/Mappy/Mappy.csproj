@@ -18,9 +18,9 @@
 	<Icon>icon.png</Icon>
 	<PackageIcon>icon.png</PackageIcon>
 	<PackageReadmeFile>README.md</PackageReadmeFile>
-	<Version>4.1.0</Version>
-    <PackageVersion>4.1.0</PackageVersion>
-	<PackageReleaseNotes>Mappy 4.1.0 shares mapping context across collection mappings, improves netstandard2.0 compatibility, and refines enum, numeric, and record constructor mapping</PackageReleaseNotes>
+	<Version>4.2.0</Version>
+    <PackageVersion>4.2.0</PackageVersion>
+	<PackageReleaseNotes>Mappy 4.2.0 shares mapping context across collection mappings, improves netstandard2.0 compatibility, and refines enum, numeric, and record constructor mapping</PackageReleaseNotes>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <Deterministic>true</Deterministic>

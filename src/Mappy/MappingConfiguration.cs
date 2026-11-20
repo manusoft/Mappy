@@ -43,6 +43,8 @@ public sealed class MappingConfiguration
         return this;
     }
 
+    internal bool HasConverter(Type sourceType, Type destinationType) => Converters.ContainsKey((sourceType, destinationType));
+
     /// <summary>
     /// Adds a property mapping from a source property to a destination property for the specified source and destination types. This mapping will be used instead of the default property name matching logic.
     /// </summary>
